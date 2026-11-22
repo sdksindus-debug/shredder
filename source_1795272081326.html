@@ -24,7 +24,11 @@
     .file-badge { font-family: Consolas, monospace; font-size: 0.8rem; color: #38bdf8; background: #030712; padding: 0.4rem 0.6rem; border-radius: 5px; border: 1px solid #1e293b; margin-bottom: 0.65rem; word-break: break-all; }
     .status { font-family: Consolas, monospace; font-size: 0.85rem; color: #34d399; margin-bottom: 0.75rem; }
     canvas { width: 100%; max-height: 240px; object-fit: contain; background: #030712; border: 1px solid var(--border); border-radius: 8px; display: block; margin-bottom: 1rem; }
-    pre { background: #030712; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; max-height: 290px; overflow: auto; font-size: 0.8rem; color: #a5f3fc; }
+    .terminal { height: 290px; overflow: auto; background: #020617; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: Consolas, monospace; font-size: 0.82rem; line-height: 1.55; color: #a7f3d0; white-space: pre-wrap; }
+    .terminal .prompt { color: #38bdf8; }
+    .terminal .ok { color: #34d399; }
+    .terminal .warn { color: #fcd34d; }
+    .terminal .error { color: #f87171; }
   </style>
 </head>
 <body>
@@ -61,8 +65,10 @@
 
   <div id="status" class="status">Ready. Upload data/image or use preloaded defaults.</div>
   <canvas id="previewCanvas" width="900" height="220"></canvas>
-  <label>Generated Encrypted .js Module Preview (First 3 Tokens + Individual Metadata)</label>
-  <pre id="codePreview">// Shredded and encrypted .js output will appear here...</pre>
+
+  <label>Running Terminal</label>
+  <pre id="terminal" class="terminal"><span class="prompt">shredder@vault</span>:~$ ready<span class="ok"> [idle]</span>
+</pre>
 
   <script>
     const previewCanvas = document.getElementById('previewCanvas');
@@ -89,12 +95,33 @@
     };
     loadedImage.src = DEFAULT_CARRIER;
 
+    function escapeTerminalText(text) {
+      const span = document.createElement('span');
+      span.textContent = text;
+      return span.innerHTML;
+    }
+
+    function appendTerminal(message, type = '') {
+      const terminal = document.getElementById('terminal');
+      const time = new Date().toLocaleTimeString();
+      const safeMessage = escapeTerminalText(message);
+      const className = type ? ` class="${type}"` : '';
+      terminal.insertAdjacentHTML('beforeend', `<span${className}>[${time}] ${safeMessage}</span>\n`);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function resetTerminal() {
+      document.getElementById('terminal').innerHTML = '<span class="prompt">shredder@vault</span>:~$ pipeline --start\n';
+    }
+
     document.getElementById('dataFileInput').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
       uploadedDataBytes = new Uint8Array(await file.arrayBuffer());
       uploadedDataMeta = { fileName: file.name, mimeType: file.type || 'application/octet-stream', sizeBytes: file.size };
-      document.getElementById('dataFileStatus').textContent = `Uploaded Data: ${file.name} | Type: ${uploadedDataMeta.mimeType} | Size: ${file.size.toLocaleString()} bytes`;
+      const message = `Uploaded Data: ${file.name} | Type: ${uploadedDataMeta.mimeType} | Size: ${file.size.toLocaleString()} bytes`;
+      document.getElementById('dataFileStatus').textContent = message;
+      appendTerminal(message, 'ok');
       updateMaxTokensForPayload();
       compositeAndRenderPreview();
     });
@@ -109,11 +136,17 @@
         loadedImage = img;
         offscreenCanvas.width = img.naturalWidth;
         offscreenCanvas.height = img.naturalHeight;
-        document.getElementById('imageFileStatus').textContent = `Uploaded Base Image: ${file.name} (${img.naturalWidth} × ${img.naturalHeight} px | ${((img.naturalWidth * img.naturalHeight) / 1_000_000).toFixed(2)} MP)`;
+        const message = `Uploaded Base Image: ${file.name} (${img.naturalWidth} × ${img.naturalHeight} px | ${((img.naturalWidth * img.naturalHeight) / 1_000_000).toFixed(2)} MP)`;
+        document.getElementById('imageFileStatus').textContent = message;
+        appendTerminal(message, 'ok');
         compositeAndRenderPreview();
         URL.revokeObjectURL(objectUrl);
       };
-      img.onerror = () => { URL.revokeObjectURL(objectUrl); document.getElementById('status').textContent = 'Could not load the selected carrier image.'; };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        document.getElementById('status').textContent = 'Could not load the selected carrier image.';
+        appendTerminal('Could not load the selected carrier image.', 'error');
+      };
       img.src = objectUrl;
     });
 
@@ -124,7 +157,10 @@
       }
     });
 
-    document.getElementById('bitWidth').addEventListener('input', updateMaxTokensForPayload);
+    document.getElementById('bitWidth').addEventListener('input', () => {
+      updateMaxTokensForPayload();
+      appendTerminal(`Token bit size set to ${document.getElementById('bitWidth').value} bits`, 'warn');
+    });
 
     function getActivePayload() {
       if (uploadedDataBytes && uploadedDataMeta) return { fileName: uploadedDataMeta.fileName, mimeType: uploadedDataMeta.mimeType, bytes: uploadedDataBytes };
@@ -206,15 +242,16 @@
     }
 
     async function executePipeline(mode) {
+      resetTerminal();
       const status = document.getElementById('status');
-      const preview = document.getElementById('codePreview');
       let directoryHandle = null;
       try {
-        // Request the directory while this call still has the user's click activation;
-        // waiting until encryption finishes can cause browsers to block the picker.
+        appendTerminal(`Starting pipeline: ${mode === 'saveToFolder' ? 'save to folder' : 'download'}`);
         if (mode === 'saveToFolder') {
           if (!window.showDirectoryPicker) throw new Error('Folder saving is not supported in this browser. Use the download button instead.');
+          appendTerminal('Opening folder picker...');
           directoryHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+          appendTerminal('Folder selected.', 'ok');
         }
 
         const passphrase = document.getElementById('passphrase').value;
@@ -225,9 +262,14 @@
         const maxTokens = Number.parseInt(document.getElementById('maxTokens').value, 10);
 
         status.textContent = 'Preparing payload and splitting tokens...';
+        appendTerminal('Preparing payload and splitting tokens...');
         const payload = getActivePayload();
+        appendTerminal(`Payload: ${payload.fileName} (${payload.bytes.length.toLocaleString()} bytes)`);
         const originalSha256 = await sha256Hex(payload.bytes);
+        appendTerminal(`SHA-256: ${originalSha256.slice(0, 16)}...`, 'ok');
         const split = splitIntoTokens(payload.bytes, bitWidth, maxTokens);
+        appendTerminal(`Created ${split.tokens.length} token(s) at ${split.bitsPerToken} bits each (${split.tokenByteLength} bytes/token).`, 'ok');
+
         const vault = {
           format: 'ShredderVault-iBit', version: 1, createdAt: new Date().toISOString(),
           fileName: payload.fileName, mimeType: payload.mimeType, originalSizeBytes: payload.bytes.length,
@@ -239,31 +281,39 @@
 
         for (let i = 0; i < split.tokens.length; i++) {
           status.textContent = `Encrypting token ${i + 1} of ${split.tokens.length}...`;
+          appendTerminal(`Encrypting AES-256-GCM token ${i + 1}/${split.tokens.length}...`);
           const tokenBytes = split.tokens[i];
           const encrypted = await encryptToken(tokenBytes, passphrase);
           vault.tokens.push({ index: i, bytes: tokenBytes.length, bitCount: split.bitsPerToken, sha256: await sha256Hex(tokenBytes), ...encrypted });
         }
 
         const jsText = `const VAULT = ${JSON.stringify(vault, null, 2)};\nexport { VAULT };\nexport default VAULT;\n`;
-        preview.textContent = jsText.slice(0, 12000) + (jsText.length > 12000 ? '\n// ... preview truncated' : '');
         const safeName = (payload.fileName || 'payload').replace(/[^a-z0-9._-]+/gi, '_').replace(/\.[^.]*$/, '');
         const fileName = `${safeName}_shredded_vault.js`;
 
         if (directoryHandle) {
           status.textContent = `Saving ${fileName} to the selected folder...`;
+          appendTerminal(`Writing ${fileName}...`);
           await saveVaultFile(directoryHandle, fileName, jsText);
-          status.textContent = `Saved ${fileName} (${vault.tokenCount} encrypted token(s)) to the selected folder.`;
+          const message = `Saved ${fileName} (${vault.tokenCount} encrypted token(s)) to the selected folder.`;
+          status.textContent = message;
+          appendTerminal(message, 'ok');
         } else {
           downloadTextFile(fileName, jsText);
-          status.textContent = `Downloaded ${fileName} (${vault.tokenCount} encrypted token(s)).`;
+          const message = `Downloaded ${fileName} (${vault.tokenCount} encrypted token(s)).`;
+          status.textContent = message;
+          appendTerminal(message, 'ok');
         }
+        appendTerminal('Pipeline complete.', 'ok');
+        appendTerminal('<span class="prompt">shredder@vault</span>:~$ ', '');
       } catch (error) {
         if (error && error.name === 'AbortError') {
           status.textContent = 'Folder selection cancelled; no file was saved.';
+          appendTerminal('Folder selection cancelled; no file was saved.', 'warn');
           return;
         }
         status.textContent = `Error: ${error.message || error}`;
-        preview.textContent = `// ${error.message || error}`;
+        appendTerminal(`Error: ${error.message || error}`, 'error');
       }
     }
 
