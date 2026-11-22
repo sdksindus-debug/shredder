@@ -1,252 +1,323 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Live-Streaming i-Bit Visual Data Shredder & Auto-Updating GGUF DB</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live i-Bit Visual Data Shredder &amp; GGUF Database</title>
   <style>
-    :root {
-      --bg: #0b0f17;
-      --panel: #121826;
-      --border: #243047;
-      --text: #e6edf7;
-      --muted: #8fa1bf;
-      --accent: #38bdf8;
-      --accent2: #22c55e;
-      --warn: #f59e0b;
-      --danger: #ef4444;
-    }
-    * { box-sizing: border-box; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    body {
-      margin: 0; padding: 24px; background: var(--bg); color: var(--text);
-      display: flex; justify-content: center;
-    }
-    .app {
-      width: 100%; max-width: 1020px; background: var(--panel);
-      border: 1px solid var(--border); border-radius: 12px; padding: 24px;
-    }
-    h1 { margin: 0 0 8px; font-size: 1.4rem; }
-    p.sub { margin: 0 0 20px; color: var(--muted); font-size: 0.92rem; }
-    .section {
-      border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px;
-      background: rgba(255, 255, 255, 0.015);
-    }
-    .section h3 { margin: 0 0 10px; font-size: 1rem; color: var(--accent); }
-    label { display: block; font-size: 0.85rem; color: var(--muted); margin: 10px 0 4px; }
-    input[type="text"], input[type="number"] {
-      width: 100%; background: #090d14; color: var(--text);
-      border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-size: 0.9rem;
-    }
-    input[readonly] {
-      opacity: 0.8; cursor: not-allowed; border-style: dashed;
-    }
-    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-    .badge {
-      display: inline-block; margin-top: 8px; padding: 4px 10px; border-radius: 999px;
-      background: #172236; color: var(--accent); font-size: 0.8rem;
-    }
-    .badge-live {
-      background: rgba(34, 197, 94, 0.16); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4);
-    }
-    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
-    button {
-      border: none; border-radius: 7px; padding: 11px 16px; font-weight: 600;
-      cursor: pointer; font-size: 0.88rem; transition: opacity 0.15s;
-    }
-    button:hover { opacity: 0.9; }
-    .btn-folder { background: var(--accent2); color: #031409; }
-    .btn-secondary { background: #26334d; color: var(--text); }
-    .btn-danger { background: var(--danger); color: #fff; }
-    .toggle-row {
-      display: flex; flex-wrap: wrap; align-items: center; gap: 18px;
-      margin-top: 12px; padding: 10px 12px; background: #090d14;
-      border: 1px solid var(--border); border-radius: 7px;
-    }
-    .toggle-row label { margin: 0; display: flex; align-items: center; gap: 8px; color: var(--text); cursor: pointer; }
-    .terminal {
-      margin-top: 16px; background: #06090f; border: 1px solid var(--border);
-      border-radius: 8px; padding: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.82rem; color: #7ee787; max-height: 250px; overflow-y: auto; white-space: pre-wrap;
-    }
-    .db-stats {
-      margin-top: 10px; font-size: 0.85rem; color: var(--warn); font-weight: 500;
-    }
+    :root { --bg:#0b0f17; --panel:#121826; --border:#243047; --text:#e6edf7; --muted:#8fa1bf; --accent:#38bdf8; --green:#22c55e; --warn:#f59e0b; --danger:#ef4444; }
+    * { box-sizing:border-box; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+    body { margin:0; padding:24px; background:var(--bg); color:var(--text); display:flex; justify-content:center; }
+    .app { width:100%; max-width:1020px; background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:24px; }
+    h1 { margin:0 0 8px; font-size:1.4rem; } p.sub { margin:0 0 20px; color:var(--muted); font-size:.92rem; }
+    .section { border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:16px; background:rgba(255,255,255,.015); }
+    .section h3 { margin:0 0 10px; font-size:1rem; color:var(--accent); }
+    label { display:block; font-size:.85rem; color:var(--muted); margin:10px 0 4px; }
+    input[type=text],input[type=number],select { width:100%; background:#090d14; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:10px; font-size:.9rem; }
+    input[readonly] { opacity:.8; cursor:not-allowed; border-style:dashed; }
+    .grid-3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+    .badge { display:inline-block; margin-top:8px; padding:4px 10px; border-radius:999px; background:#172236; color:var(--accent); font-size:.8rem; }
+    .badge-live { background:rgba(34,197,94,.16); color:#4ade80; border:1px solid rgba(34,197,94,.4); }
+    .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+    button { border:none; border-radius:7px; padding:11px 16px; font-weight:600; cursor:pointer; font-size:.88rem; }
+    button:disabled { opacity:.5; cursor:not-allowed; } button:hover:not(:disabled) { filter:brightness(1.08); }
+    .btn-folder { background:var(--green); color:#031409; } .btn-secondary { background:#26334d; color:var(--text); } .btn-danger { background:var(--danger); color:#fff; }
+    .toggle-row { display:flex; flex-wrap:wrap; align-items:center; gap:18px; margin-top:12px; padding:10px 12px; background:#090d14; border:1px solid var(--border); border-radius:7px; }
+    .toggle-row label { margin:0; display:flex; align-items:center; gap:8px; color:var(--text); cursor:pointer; }
+    .terminal { margin-top:16px; background:#06090f; border:1px solid var(--border); border-radius:8px; padding:14px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.82rem; color:#7ee787; max-height:250px; overflow-y:auto; white-space:pre-wrap; }
+    .db-stats { margin-top:10px; font-size:.85rem; color:var(--warn); font-weight:500; }
   </style>
 </head>
 <body>
-  <div class="app">
-    <h1>Multi-Type i-Bit Visual Data Shredder &amp; Auto-Updating GGUF DB</h1>
-    <p class="sub">
-      Continuously shreds incoming data flows into i-bit tokens, encrypts with AES-256-GCM, re-shreds &amp; re-encrypts
-      all outcomes (including generated <code>.js</code> artifacts), and automatically updates your folder-backed <code>.gguf</code> database in real time.
-    </p>
+<div class="app">
+  <h1>Multi-Type i-Bit Visual Data Shredder &amp; GGUF Database</h1>
+  <p class="sub">Encrypt uploaded or live-generated bytes with AES-256-GCM, shard metadata, queue batches, and write real files to a user-selected folder.</p>
 
-    <!-- 1. Data Input -->
-    <div class="section">
-      <h3>1. Data Input (Multi-Type Upload or Live Stream)</h3>
-      <label for="dataFile">Upload Data File (Any Type: JSON, CSV, PDF, ZIP, IMG, BIN)</label>
-      <input type="file" id="dataFile" />
-      <div class="badge" id="activeSourceBadge">Active Source: Default Vault Stream Payload</div>
-    </div>
-
-    <!-- 2. Base Carrier Image -->
-    <div class="section">
-      <h3>2. Base Carrier Image (Supports Very Large / 4K+ Images)</h3>
-      <label for="carrierFile">Upload Base Image (4K / High-Resolution Carrier)</label>
-      <input type="file" id="carrierFile" accept="image/*" />
-      <div class="badge" id="activeCarrierBadge">Active Carrier: Built-in Preloaded Carrier (1600×900)</div>
-    </div>
-
-    <!-- 3. Parameters & Real-Time Stream Controls -->
-    <div class="section">
-      <h3>3. Shredding, AES-256-GCM &amp; Real-Time GGUF Auto-Sync</h3>
-      <div class="grid-3">
-        <div>
-          <label for="tokenBitSize">Token Bit Size (i)</label>
-          <input type="number" id="tokenBitSize" value="1" min="1" max="256" step="1" />
-        </div>
-        <div>
-          <label for="maxTokensCap">Max Tokens Cap (1 Token / 1 Bit of i)</label>
-          <input type="number" id="maxTokensCap" value="1" min="1" max="256" readonly />
-        </div>
-        <div>
-          <label for="streamIntervalMs">Continuous Stream Interval (ms)</label>
-          <input type="number" id="streamIntervalMs" value="2000" min="500" step="250" />
-        </div>
-      </div>
-
-      <div class="toggle-row">
-        <label>
-          <input type="checkbox" id="chkAutoOnEdit" checked />
-          Auto-update GGUF DB on file upload
-        </label>
-        <label>
-          <input type="checkbox" id="chkSaveJsPerBatch" />
-          Also write individual <code>.js</code> file per stream tick to folder
-        </label>
-        <span class="badge" id="streamStateBadge">Stream: IDLE</span>
-      </div>
-
-      <div class="actions">
-        <button class="btn-secondary" id="btnPickFolder">Choose Storage Folder</button>
-        <button class="btn-folder" id="btnStartStream">Start Continuous Auto-Shred Stream</button>
-        <button class="btn-danger" id="btnStopStream" style="display:none;">Stop Stream</button>
-      </div>
-      <div class="db-stats" id="dbStats">GGUF DB Status: Ready (0 batches committed | Queue: 0)</div>
-    </div>
-
-    <!-- Running Terminal -->
-    <div class="terminal" id="terminal">shredder@vault:~$ ready [auto-sync engine initialized]</div>
+  <div class="section">
+    <h3>1. Data Input</h3>
+    <label for="dataFile">Upload Data File (JSON, CSV, PDF, ZIP, IMG, BIN)</label>
+    <input type="file" id="dataFile">
+    <div class="badge" id="activeSourceBadge">Active Source: Default Vault Stream Payload</div>
   </div>
 
-  <script>
-    const MASTER_PASSPHRASE = 'VaultKey#2026!';
-    const DEFAULT_GGUF_DB_NAME = 'vault_outcomes_db.gguf';
-    const DEFAULT_VAULT_ID = 'PK-LHR-904';
+  <div class="section">
+    <h3>2. Base Carrier Image</h3>
+    <label for="carrierFile">Upload Base Image</label>
+    <input type="file" id="carrierFile" accept="image/*">
+    <div class="badge" id="activeCarrierBadge">Active Carrier: Built-in Carrier (1600×900)</div>
+  </div>
 
-    /**
-     * GGUF v3 Binary Database Engine with Serialized Real-Time Stream Queue
-     */
-    class GGUFDatabaseStore {
-      constructor() {
-        this.enc = new TextEncoder();
-        this.dec = new TextDecoder();
-        this.cachedKey = null;
-        this.cachedKeySignature = null;
-        this.batches = [];
-        this.writeQueue = Promise.resolve();
-        this.pendingWrites = 0;
-      }
+  <div class="section">
+    <h3>3. Shredding &amp; Real-Time GGUF Sync</h3>
+    <div class="grid-3">
+      <div><label for="tokenBitSize">Token Bit Size (i)</label><input type="number" id="tokenBitSize" value="1" min="1" max="256"></div>
+      <div><label for="maxTokensCap">Max Tokens Cap</label><input type="number" id="maxTokensCap" value="256" min="1" max="65536"></div>
+      <div><label for="streamIntervalMs">Stream Interval (ms)</label><input type="number" id="streamIntervalMs" value="2000" min="500" step="250"></div>
+    </div>
 
-      toHex(u8) {
-        return Array.from(u8).map((b) => b.toString(16).padStart(2, '0')).join('');
-      }
+    <div class="toggle-row">
+      <label><input type="checkbox" id="chkAutoOnEdit" checked> Auto-update on file upload</label>
+      <label><input type="checkbox" id="chkSaveJsPerBatch"> Write one <code>.js</code> file per batch</label>
+      <span class="badge" id="streamStateBadge">Stream: IDLE</span>
+    </div>
 
-      toBase64(u8) {
-        let bin = '';
-        const chunk = 0x8000;
-        for (let i = 0; i < u8.length; i += chunk) {
-          bin += String.fromCharCode.apply(null, u8.subarray(i, i + chunk));
+    <div class="actions">
+      <button class="btn-secondary" id="btnPickFolder">Choose Storage Folder</button>
+      <button class="btn-folder" id="btnStartStream">Start Continuous Stream</button>
+      <button class="btn-danger" id="btnStopStream" style="display:none">Stop Stream</button>
+    </div>
+    <div class="db-stats" id="dbStats">GGUF DB Status: Ready (0 batches committed | Queue: 0)</div>
+  </div>
+
+  <div class="terminal" id="terminal">shredder@vault:~$ ready [encrypted batch engine initialized]</div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const MASTER_PASSPHRASE = 'VaultKey#2026!';
+  const DEFAULT_GGUF_DB_NAME = 'vault_outcomes_db.gguf';
+  const DEFAULT_VAULT_ID = 'PK-LHR-904';
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
+  const els = {
+    dataFile: document.querySelector('#dataFile'), carrierFile: document.querySelector('#carrierFile'),
+    tokenBitSize: document.querySelector('#tokenBitSize'), maxTokensCap: document.querySelector('#maxTokensCap'),
+    streamIntervalMs: document.querySelector('#streamIntervalMs'), chkAutoOnEdit: document.querySelector('#chkAutoOnEdit'),
+    chkSaveJsPerBatch: document.querySelector('#chkSaveJsPerBatch'), streamStateBadge: document.querySelector('#streamStateBadge'),
+    btnPickFolder: document.querySelector('#btnPickFolder'), btnStartStream: document.querySelector('#btnStartStream'),
+    btnStopStream: document.querySelector('#btnStopStream'), dbStats: document.querySelector('#dbStats'), terminal: document.querySelector('#terminal'),
+    activeSourceBadge: document.querySelector('#activeSourceBadge'), activeCarrierBadge: document.querySelector('#activeCarrierBadge')
+  };
+
+  let directoryHandle = null;
+  let carrierWidth = 1600;
+  let carrierHeight = 900;
+  let streamTimer = null;
+  let streamTick = 0;
+  let batchCount = 0;
+  let queueCount = 0;
+  let sourceBytes = encoder.encode('DEFAULT_VAULT_STREAM_PAYLOAD|' + DEFAULT_VAULT_ID);
+  let writeQueue = Promise.resolve();
+
+  function appendLog(message) {
+    const time = new Date().toISOString();
+    els.terminal.textContent += '\n' + time + '  ' + message;
+    els.terminal.scrollTop = els.terminal.scrollHeight;
+  }
+
+  function updateStats() {
+    els.dbStats.textContent = `GGUF DB Status: ${directoryHandle ? 'Folder selected' : 'Browser memory'} (${batchCount} batches committed | Queue: ${queueCount})`;
+  }
+
+  function toHex(bytes) {
+    return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function concat(...parts) {
+    const size = parts.reduce((n, p) => n + p.length, 0);
+    const out = new Uint8Array(size);
+    let offset = 0;
+    for (const part of parts) { out.set(part, offset); offset += part.length; }
+    return out;
+  }
+
+  function stringBytes(value) {
+    return encoder.encode(value);
+  }
+
+  function u32le(value) {
+    const out = new Uint8Array(4);
+    new DataView(out.buffer).setUint32(0, value >>> 0, true);
+    return out;
+  }
+
+  async function deriveKey(passphrase, salt) {
+    const material = await crypto.subtle.importKey('raw', encoder.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey(
+      { name:'PBKDF2', salt, iterations:100000, hash:'SHA-256' },
+      material, { name:'AES-GCM', length:256 }, false, ['encrypt', 'decrypt']
+    );
+  }
+
+  async function encryptBytes(bytes) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await deriveKey(MASTER_PASSPHRASE, salt);
+    const cipher = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, bytes);
+    return { salt, iv, cipher:new Uint8Array(cipher) };
+  }
+
+  function validSize(input) {
+    const value = Number(input.value);
+    if (!Number.isFinite(value) || value < Number(input.min) || (input.max && value > Number(input.max))) {
+      throw new Error(`${input.id} must be between ${input.min} and ${input.max}`);
+    }
+    return value;
+  }
+
+  function shredBytes(bytes, bitSize, cap) {
+    const totalBits = bytes.byteLength * 8;
+    const count = Math.min(Math.max(1, cap), Math.max(1, Math.ceil(totalBits / bitSize)));
+    const used = Math.min(bytes.byteLength, Math.ceil(count * bitSize / 8));
+    const metadata = [];
+    const totalPixels = Math.max(1, carrierWidth * carrierHeight);
+
+    for (let i = 0; i < count; i++) {
+      const bitOffset = i * bitSize;
+      const byteOffset = Math.floor(bitOffset / 8);
+      const pixelIndex = i * 7919 % totalPixels;
+      metadata.push({
+        tokenIndex:i, bitOffset, bitSize,
+        byteOffset, bitInByteOffset:bitOffset % 8,
+        carrierCoord:{ x:pixelIndex % carrierWidth, y:Math.floor(pixelIndex / carrierWidth) }
+      });
+    }
+
+    return { bitSize, tokenCount:count, processedBytes:used, slicedPayload:bytes.slice(0, used), metadata };
+  }
+
+  async function createGGUFPayload(batch) {
+    const magic = stringBytes('GGUF');
+    const version = u32le(3);
+    const tensorCount = u32le(1);
+    const metadataCount = u32le(5);
+
+    const jsonPayload = encoder.encode(JSON.stringify(batch));
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', jsonPayload));
+    const header = concat(magic, version, tensorCount, metadataCount,
+      stringBytes('SHREDDER_VAULT_ID=' + DEFAULT_VAULT_ID + '\n'),
+      stringBytes('BATCH_ID=' + batch.batchId + '\n'),
+      stringBytes('SHA256=' + toHex(digest) + '\n'),
+      u32le(jsonPayload.length), jsonPayload);
+    return header;
+  }
+
+  async function writeFile(handle, name, bytes) {
+    const fileHandle = await handle.getFileHandle(name, { create:true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(bytes);
+    await writable.close();
+  }
+
+  function enqueueWrite(task) {
+    queueCount++;
+    updateStats();
+    writeQueue = writeQueue.then(task).catch(error => {
+      appendLog('Write error: ' + error.message);
+    }).finally(() => {
+      queueCount--;
+      batchCount++;
+      updateStats();
+    });
+    return writeQueue;
+  }
+
+  async function processBatch() {
+    try {
+      const bitSize = validSize(els.tokenBitSize);
+      const cap = validSize(els.maxTokensCap);
+      streamTick++;
+
+      const liveBytes = concat(sourceBytes, encoder.encode('|tick=' + streamTick + '|time=' + Date.now()));
+      const shred = shredBytes(liveBytes, bitSize, cap);
+      const encrypted = await encryptBytes(shred.slicedPayload);
+      const batch = {
+        version:3,
+        batchId:streamTick,
+        vaultId:DEFAULT_VAULT_ID,
+        timestamp:new Date().toISOString(),
+        shred:{ bitSize:shred.bitSize, tokenCount:shred.tokenCount, processedBytes:shred.processedBytes, metadata:shred.metadata },
+        cipher:{ saltHex:toHex(encrypted.salt), ivHex:toHex(encrypted.iv), cipherBytesHex:toHex(encrypted.cipher) }
+      };
+
+      const gguf = await createGGUFPayload(batch);
+      await enqueueWrite(async () => {
+        if (directoryHandle) {
+          await writeFile(directoryHandle, DEFAULT_GGUF_DB_NAME, gguf);
+          if (els.chkSaveJsPerBatch.checked) {
+            const jsText = 'export default ' + JSON.stringify(batch, null, 2) + ';\n';
+            await writeFile(directoryHandle, `batch_${String(streamTick).padStart(6,'0')}.js`, encoder.encode(jsText));
+          }
+        } else {
+          const blob = new Blob([gguf], { type:'application/octet-stream' });
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement('a');
+          anchor.href = url;
+          anchor.download = DEFAULT_GGUF_DB_NAME;
+          anchor.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
-        return btoa(bin);
-      }
+      });
 
-      async sha256Hex(u8) {
-        const digest = await crypto.subtle.digest('SHA-256', u8);
-        return this.toHex(new Uint8Array(digest));
-      }
+      appendLog(`Committed batch ${streamTick}: ${shred.tokenCount} tokens, ${shred.processedBytes} bytes, AES-GCM OK`);
+    } catch (error) {
+      appendLog('Batch error: ' + error.message);
+    }
+  }
 
-      async getCryptoKey(passphrase, salt) {
-        const sig = `${passphrase}:${this.toHex(salt)}`;
-        if (this.cachedKey && this.cachedKeySignature === sig) {
-          return this.cachedKey;
-        }
-        const keyMaterial = await crypto.subtle.importKey(
-          'raw',
-          this.enc.encode(passphrase),
-          'PBKDF2',
-          false,
-          ['deriveKey']
-        );
-        const key = await crypto.subtle.deriveKey(
-          { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
-          keyMaterial,
-          { name: 'AES-GCM', length: 256 },
-          false,
-          ['encrypt', 'decrypt']
-        );
-        this.cachedKey = key;
-        this.cachedKeySignature = sig;
-        return key;
-      }
+  els.dataFile.addEventListener('change', async event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    sourceBytes = new Uint8Array(await file.arrayBuffer());
+    els.activeSourceBadge.textContent = `Active Source: ${file.name} (${file.size} bytes)`;
+    appendLog(`Loaded source file: ${file.name}`);
+    if (els.chkAutoOnEdit.checked) await processBatch();
+  });
 
-      async encryptBytes(u8, passphrase = MASTER_PASSPHRASE) {
-        const salt = crypto.getRandomValues(new Uint8Array(16));
-        const iv = crypto.getRandomValues(new Uint8Array(12));
-        const key = await this.getCryptoKey(passphrase, salt);
-        const cipherBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, u8);
-        return {
-          saltHex: this.toHex(salt),
-          ivHex: this.toHex(iv),
-          cipherBytes: new Uint8Array(cipherBuf),
-        };
-      }
+  els.carrierFile.addEventListener('change', async event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const bitmap = await createImageBitmap(file);
+    carrierWidth = bitmap.width;
+    carrierHeight = bitmap.height;
+    bitmap.close();
+    els.activeCarrierBadge.textContent = `Active Carrier: ${file.name} (${carrierWidth}×${carrierHeight})`;
+    appendLog(`Loaded carrier image: ${file.name} (${carrierWidth}×${carrierHeight})`);
+  });
 
-      shredBytes(bytes, tokenBitSize = 1, maxTokensCap = 1, carrierWidth = 1600, carrierHeight = 900) {
-        const totalBitsAvailable = bytes.byteLength * 8;
-        const neededTokens = Math.min(maxTokensCap, Math.max(1, Math.ceil(totalBitsAvailable / tokenBitSize)));
-        const usedBytesCount = Math.min(bytes.byteLength, Math.ceil((neededTokens * tokenBitSize) / 8));
-        const slicedPayload = bytes.subarray(0, usedBytesCount);
+  els.btnPickFolder.addEventListener('click', async () => {
+    if (!('showDirectoryPicker' in window)) {
+      appendLog('Folder picker unavailable: browser memory/download fallback is active');
+      return;
+    }
+    try {
+      directoryHandle = await window.showDirectoryPicker({ mode:'readwrite' });
+      appendLog(`Selected storage folder: ${directoryHandle.name}`);
+      updateStats();
+    } catch (error) {
+      if (error.name !== 'AbortError') appendLog('Folder error: ' + error.message);
+    }
+  });
 
-        const metadata = [];
-        const totalPixels = Math.max(1, carrierWidth * carrierHeight);
+  els.btnStartStream.addEventListener('click', () => {
+    if (streamTimer) return;
+    let interval;
+    try { interval = validSize(els.streamIntervalMs); }
+    catch (error) { appendLog(error.message); return; }
+    els.btnStartStream.style.display = 'none';
+    els.btnStopStream.style.display = 'inline-block';
+    els.streamStateBadge.textContent = 'Stream: LIVE';
+    els.streamStateBadge.classList.add('badge-live');
+    appendLog(`Continuous stream started (${interval} ms)`);
+    processBatch();
+    streamTimer = setInterval(processBatch, interval);
+  });
 
-        for (let idx = 0; idx < neededTokens; idx++) {
-          const bitOffset = idx * tokenBitSize;
-          const byteOffset = Math.floor(bitOffset / 8);
-          const bitInByteOffset = bitOffset % 8;
-          const pixelIndex = (idx * 7919) % totalPixels;
-          metadata.push({
-            tokenIndex: idx,
-            bitOffset,
-            bitSize: tokenBitSize,
-            byteOffset,
-            bitInByteOffset,
-            carrierCoord: {
-              x: pixelIndex % carrierWidth,
-              y: Math.floor(pixelIndex / carrierWidth),
-            },
-          });
-        }
+  els.btnStopStream.addEventListener('click', () => {
+    clearInterval(streamTimer);
+    streamTimer = null;
+    els.btnStartStream.style.display = 'inline-block';
+    els.btnStopStream.style.display = 'none';
+    els.streamStateBadge.textContent = 'Stream: IDLE';
+    els.streamStateBadge.classList.remove('badge-live');
+    appendLog('Continuous stream stopped');
+  });
 
-        return {
-          tokenBitSize,
-          tokenCount: neededTokens,
-          processedBytes: usedBytesCount,
-          slicedPayload,
-          metadata,
-        };
-      }
-
-      buildGGUFv3Binary() {
-        const entries = [
+  updateStats();
+})();
+</script>
+</body>
+</html>
