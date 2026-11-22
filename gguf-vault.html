@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShredderVault GGUF editor</title>
+  <style>
+    :root { color-scheme: dark; font: 16px system-ui, sans-serif; background: #090d16; color: #f3f4f6; }
+    body { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    section { background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 1rem; margin: 1rem 0; }
+    label { display: block; font-size: .85rem; color: #9ca3af; margin: .75rem 0 .35rem; }
+    input, textarea, button { box-sizing: border-box; width: 100%; padding: .65rem; border: 1px solid #374151; border-radius: 6px; background: #030712; color: #f3f4f6; }
+    textarea { min-height: 180px; font: .85rem ui-monospace, monospace; overflow-wrap: anywhere; }
+    button { width: auto; margin: .5rem .4rem .2rem 0; background: #2563eb; border: 0; cursor: pointer; font-weight: 600; }
+    button.secondary { background: #047857; }
+    #status { white-space: pre-wrap; color: #34d399; }
+    .note { color: #9ca3af; font-size: .9rem; line-height: 1.5; }
+    @media (max-width: 600px) { button { width: 100%; } }
+  </style>
+</head>
+<body>
+  <h1>ShredderVault GGUF editor</h1>
+  <p class="note">Creates a metadata-only GGUF v3 container for encrypted ShredderVault byte chunks. This is not a model or tokenizer file. Decryption and editing happen locally in your browser; no data is uploaded.</p>
+  <section>
+    <h2>Create a vault</h2>
+    <label for="payload">Payload bytes as hexadecimal (spaces/newlines allowed)</label>
+    <textarea id="payload" spellcheck="false" placeholder="Example: 48 65 6c 6c 6f"></textarea>
+    <label for="fileName">Original filename</label><input id="fileName" value="payload.bin">
+    <label for="chunkBytes">Chunk size in bytes</label><input id="chunkBytes" type="number" min="1" max="65536" value="4">
+    <label for="passphrase">Passphrase (not saved)</label><input id="passphrase" type="password" autocomplete="new-password">
+    <button id="create">Encrypt and download .gguf</button>
+  </section>
+  <section>
+    <h2>Open, decrypt, edit, and save</h2>
+    <label for="vaultFile">Existing ShredderVault GGUF</label><input id="vaultFile" type="file" accept=".gguf,application/octet-stream">
+    <label for="openPassphrase">Passphrase</label><input id="openPassphrase" type="password" autocomplete="current-password">
+    <button id="open">Decrypt vault into editable bytes</button>
+    <label for="editable">Decrypted/editable payload bytes (hex)</label>
+    <textarea id="editable" spellcheck="false" placeholder="Open a vault to decrypt its contents"></textarea>
+    <label for="editChunkBytes">New chunk size in bytes</label><input id="editChunkBytes" type="number" min="1" max="65536" value="4">
+    <button id="save" class="secondary">Re-encrypt edits and download .gguf</button>
+  </section>
+  <p id="status" role="status" aria-live="polite">Ready.</p>
+  <script type="module">
+    import { createVault, decryptVault, encodeGGUF, decodeGGUF, rebuildVault } from './gguf-vault.mjs';
+    const $ = id => document.getElementById(id);
+    let openedVault = null;
+    let openedBytes = null;
+    function parseHex(value) {
+      const compact = value.replace(/\s+/g, '');
+      if (!/^(?:[0-9a-fA-F]{2})*$/.test(compact)) throw new Error('Enter complete hex byte pairs (for example: 0a ff 21).');
+      return Uint8Array.from(compact.match(/.{2}/g) || [], pair => parseInt(pair, 16));
+    }
+    function toHex(bytes) {
+      return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join(' ');
+    }
+    function download(blob, name) {
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = name;
+      document.body.append(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    function safeBaseName(name) { return (name || 'vault').replace(/[^a-z0-9._-]+/gi, '_').replace(/\.[^.]*$/, '') || 'vault'; }
+    $('create').addEventListener('click', async () => {
+      try {
+        $('status').textContent = 'Encrypting payload…';
+        const bytes = parseHex($('payload').value);
+        const chunkBytes = Number($('chunkBytes').value);
+        const vault = await createVault({ bytes, fileName: $('fileName').value || 'payload.bin', chunkBytes, passphrase: $('passphrase').value });
+        download(encodeGGUF(vault), `${safeBaseName(vault.fileName)}_shredded_vault.gguf`);
+        $('status').textContent = `Created a GGUF vault with ${vault.recordCount} encrypted record(s).`;
+      } catch (error) { $('status').textContent = `Error: ${error.message}`; }
+    });
+    $('open').addEventListener('click', async () => {
+      try {
+        const file = $('vaultFile').files[0];
+        if (!file) throw new Error('Choose a GGUF vault first.');
+        $('status').textContent = 'Reading and decrypting vault…';
+        openedVault = await decodeGGUF(file);
+        openedBytes = await decryptVault(openedVault, $('openPassphrase').value);
+        $('editable').value = toHex(openedBytes);
+        $('editChunkBytes').value = openedVault.chunkBytes;
+        $('status').textContent = `Decrypted ${openedVault.recordCount} record(s), ${openedBytes.length} byte(s). Edit the hex bytes or chunk size, then save.`;
+      } catch (error) { openedVault = null; openedBytes = null; $('status').textContent = `Error: ${error.message}`; }
+    });
+    $('save').addEventListener('click', async () => {
+      try {
+        if (!openedVault) throw new Error('Open and decrypt a vault first.');
+        const bytes = parseHex($('editable').value);
+        $('status').textContent = 'Re-encrypting edited data…';
+        const vault = await rebuildVault(openedVault, { bytes, chunkBytes: Number($('editChunkBytes').value), passphrase: $('openPassphrase').value });
+        download(encodeGGUF(vault), `${safeBaseName(vault.fileName)}_shredded_vault.gguf`);
+        openedVault = vault; openedBytes = bytes;
+        $('status').textContent = `Saved edited vault: ${vault.recordCount} freshly encrypted record(s).`;
+      } catch (error) { $('status').textContent = `Error: ${error.message}`; }
+    });
+  </script>
+</body>
+</html>
