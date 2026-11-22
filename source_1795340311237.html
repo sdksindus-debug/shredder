@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShredderVault Decryptor, Genesis Wallet & GGUF Reconstruction/LLM Engine</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --panel: #121826;
+      --card: #0d1320;
+      --border: #243047;
+      --text: #e6edf7;
+      --muted: #8fa1bf;
+      --accent: #38bdf8;
+      --purple: #a855f7;
+      --green: #22c55e;
+      --gold: #f59e0b;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    body {
+      margin: 0; padding: 24px; background: var(--bg); color: var(--text);
+      display: flex; justify-content: center;
+    }
+    .app {
+      width: 100%; max-width: 1220px; background: var(--panel);
+      border: 1px solid var(--border); border-radius: 12px; padding: 24px;
+    }
+    h1 { margin: 0 0 6px; font-size: 1.45rem; }
+    p.sub { margin: 0 0 20px; color: var(--muted); font-size: 0.92rem; }
+    .top-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; }
+    @media (max-width: 880px) { .top-grid { grid-template-columns: 1fr; } }
+    .section {
+      border: 1px solid var(--border); border-radius: 9px; padding: 16px;
+      background: var(--card); margin-bottom: 16px;
+    }
+    .section h3 { margin: 0 0 10px; font-size: 1rem; color: var(--accent); }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin: 10px 0 4px; }
+    input[type="text"], select, textarea {
+      width: 100%; background: #070b12; color: var(--text);
+      border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-size: 0.9rem;
+    }
+    textarea { min-height: 76px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    button {
+      border: none; border-radius: 7px; padding: 10px 15px; font-weight: 600;
+      cursor: pointer; font-size: 0.87rem; transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.9; }
+    .btn-primary { background: var(--accent); color: #041019; }
+    .btn-purple { background: var(--purple); color: #fff; }
+    .btn-green { background: var(--green); color: #031409; }
+    .btn-secondary { background: #24314a; color: var(--text); }
+    .btn-danger { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.45); }
+    .wallet-box {
+      background: linear-gradient(145deg, #10192b, #0a101d);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+    .recon-box {
+      background: linear-gradient(145deg, #0b1b18, #0a101d);
+      border: 1px solid rgba(34, 197, 94, 0.45);
+    }
+    .llm-box {
+      background: linear-gradient(145deg, #151026, #0b0f1a);
+      border: 1px solid rgba(168, 85, 247, 0.45);
+    }
+    .wallet-balance { font-size: 1.75rem; font-weight: 800; color: var(--gold); margin: 6px 0; }
+    .wallet-meta { font-size: 0.82rem; color: var(--muted); line-height: 1.55; font-family: ui-monospace, monospace; }
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 14px 0;
+    }
+    .kpi {
+      background: #080c14; border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+    }
+    .kpi .k-label { font-size: 0.78rem; color: var(--muted); }
+    .kpi .k-val { font-size: 1.15rem; font-weight: 700; margin-top: 4px; color: var(--text); }
+    .view-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 880px) { .view-grid { grid-template-columns: 1fr; } }
+    canvas {
+      width: 100%; max-height: 295px; object-fit: contain; background: #05080e;
+      border: 1px solid var(--border); border-radius: 8px; display: block;
+    }
+    .log-box {
+      background: #05080e; border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8rem; color: #7ee787; max-height: 240px; overflow: auto; white-space: pre-wrap;
+    }
+    .status-bar { margin-top: 10px; font-size: 0.86rem; color: var(--accent); }
+    .ingest-bar {
+      margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    }
+    @media (max-width: 880px) { .ingest-bar { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>ShredderVault Decryptor, Genesis Wallet &amp; GGUF Reconstruction / LLM Engine</h1>
+    <p class="sub">
+      Reads encrypted <code>.gguf</code> containers and <code>.js</code> vaults from your ShredderVault folder, verifies two-stage AES-256-GCM &amp; SHA-256 metadata,
+      credits Genesis Tokens (1 Bit = 1 Token), reconstructs new data (images, text, and multi-type records) directly from the GGUF folder database
+      and immediately saves new data back into GGUF, and runs an embedded Language Model over GGUF folder records.
+    </p>
+
+    <div class="top-grid">
+      <!-- Left Column: Folder Loader -->
+      <div>
+        <div class="section">
+          <h3>1. Load Encrypted Vault Folder (.gguf Database &amp; .js Files)</h3>
+          <div class="btn-row">
+            <button class="btn-secondary" id="btnOpenFolder">Open ShredderVault Folder (Read/Write .gguf &amp; .js)</button>
+            <button class="btn-primary" id="btnDecryptAll">Decrypt All Vaults, Verify SHA-256 &amp; Credit Genesis Wallet</button>
+          </div>
+          <label for="passphrase">Master Vault Key (AES-256-GCM)</label>
+          <input type="text" id="passphrase" value="VaultKey#2026!" />
+          <div class="status-bar" id="loadedFilesSummary">No ShredderVault folder mounted yet.</div>
+        </div>
+      </div>
+
+      <!-- Right Column: Genesis Wallet -->
+      <div>
+        <div class="section wallet-box">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="color:var(--gold); margin:0;">Genesis Wallet (1 Bit = 1 Token)</h3>
+            <button class="btn-danger" id="btnResetWallet" style="padding:6px 10px; font-size:0.78rem;">Reset Wallet</button>
+          </div>
+          <div class="wallet-balance" id="walletBalance">0 GEN-TOK</div>
+          <div class="wallet-meta">
+            <div>Address: <span id="walletAddress">--</span></div>
+            <div>Genesis Block: <span id="genesisBlockHash">--</span></div>
+            <div>Total Verified Bits Credited: <span id="totalBitsCredited">0 bits</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-bar" id="statusLine">Ready. Click "Open ShredderVault Folder" to load your GGUF database.</div>
+
+    <!-- KPI Counters -->
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="k-label">Vault Files / GGUF Batches</div>
+        <div class="k-val" id="kpiFiles">0</div>
+      </div>
+      <div class="kpi">
+        <div class="k-label">Verified Tokens</div>
+        <div class="k-val" id="kpiVerified" style="color:var(--green);">0</div>
+      </div>
+      <div class="kpi">
+        <div class="k-label">Failed / Tampered</div>
+        <div class="k-val" id="kpiFailed" style="color:var(--red);">0</div>
+      </div>
+      <div class="kpi">
+        <div class="k-label">Wallet Credited (Session)</div>
+        <div class="k-val" id="kpiCredited" style="color:var(--gold);">+0 GEN-TOK (0 bits)</div>
+      </div>
+    </div>
+
+    <!-- Reconstruct New Data From GGUF Folder DB & Immediately Save New Data Back Into GGUF -->
+    <div class="section recon-box">
+      <h3 style="color:var(--green);">2. Reconstruct New Data From GGUF Folder Database &amp; Immediately Save Back Into GGUF</h3>
+      <p style="font-size:0.84rem; color:var(--muted); margin:0 0 12px;">
+        Reconstructs visual carrier matrices, reassembled text payloads, and synthesized multi-batch records directly from your folder's <code>.gguf</code> database.
+        Any new image, text, or multi-type data file added or synthesized here is immediately re-shredded, two-stage re-encrypted, and saved back into GGUF.
+      </p>
+
+      <div style="margin-bottom:12px;">
+        <label for="reconBatchSelect" style="margin-top:0;">Select GGUF Folder Batch to Reconstruct (Image + Text + Metadata)</label>
+        <select id="reconBatchSelect">
+          <option value="">-- Open ShredderVault folder to load GGUF batches --</option>
+        </select>
+      </div>
+
+      <div class="view-grid">
+        <!-- Image Reconstruction -->
+        <div>
+          <label style="margin-top:0;">Reconstructed Visual Matrix (Carrier + Verified i-Bit Tokens)</label>
+          <canvas id="carrierCanvas" width="1600" height="900"></canvas>
+
+          <div class="btn-row">
+            <button class="btn-primary" id="btnReconstructSelected">Reconstruct Selected Batch</button>
+            <button class="btn-green" id="btnSynthesizeSaveGGUF">Synthesize New Image From GGUF &amp; Save Back</button>
+          </div>
+          <div class="status-bar" id="imageReconStatus" style="color:#86efac;">
+            Image Engine: Waiting for GGUF folder database.
+          </div>
+        </div>
+
+        <!-- Text Reconstruction -->
+        <div>
+          <label for="reconstructedTextEditor" style="margin-top:0;">Reconstructed Text Data (Editable — Immediately Save Back to GGUF)</label>
+          <textarea id="reconstructedTextEditor" style="min-height:255px;" placeholder="Reassembled text data from decrypted GGUF i-bit tokens will appear here..."></textarea>
+
+          <div class="btn-row">
+            <button class="btn-secondary" id="btnMergeAllText">Reconstruct Merged Archive From All GGUF Batches</button>
+            <button class="btn-green" id="btnSaveTextBackGGUF">Save Reconstructed Text Immediately Back to GGUF</button>
+          </div>
+          <div class="status-bar" id="textReconStatus" style="color:#86efac;">
