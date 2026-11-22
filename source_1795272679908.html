@@ -2,168 +2,217 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>ShredderVault Batch Decryptor & 1-Bit = 1-Token Genesis Wallet</title>
+  <title>ShredderVault Batch Decryptor &amp; Genesis Wallet</title>
   <style>
-    :root { --bg: #090d16; --card: #111827; --border: #1f2937; --green: #10b981; --blue: #3b82f6; --purple: #8b5cf6; --amber: #f59e0b; --danger: #ef4444; --text: #f3f4f6; --muted: #9ca3af; }
-    body { font-family: "Segoe UI", system-ui, sans-serif; max-width: 1040px; margin: 1.5rem auto; padding: 0 1rem; background: var(--bg); color: var(--text); }
-    h2 { margin: 0 0 0.25rem; }
-    .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.25rem; }
-    .grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 1rem; margin-bottom: 1rem; }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; }
-    .wallet-card { background: linear-gradient(145deg, #0f172a, #111827); border: 1px solid #1d4ed8; }
-    label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.04em; }
-    input[type="password"], select {
-      width: 100%; box-sizing: border-box; padding: 0.55rem 0.7rem; border-radius: 6px;
-      border: 1px solid #374151; background: #030712; color: var(--text); font-family: Consolas, monospace; font-size: 0.88rem;
-    }
-    .btn-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
-    button { padding: 0.65rem 1.05rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; font-size: 0.88rem; }
-    button:hover { opacity: 0.92; }
-    .btn-folder { background: var(--purple); color: #fff; flex: 1; }
-    .btn-files { background: #0284c7; color: #fff; flex: 1; }
-    .btn-carrier { background: #334155; color: #f8fafc; width: 100%; margin-top: 0.4rem; }
-    .btn-decrypt { background: var(--green); color: #052e16; font-size: 0.95rem; padding: 0.75rem 1.4rem; }
-    .btn-img { background: var(--blue); color: #fff; }
-    .btn-reset-wallet { background: #374151; color: #fca5a5; font-size: 0.78rem; padding: 0.4rem 0.7rem; }
-    .wallet-balance { font-family: Consolas, monospace; font-size: 2rem; font-weight: 700; color: #38bdf8; margin: 0.35rem 0; }
-    .wallet-meta { font-family: Consolas, monospace; font-size: 0.8rem; color: #94a3b8; line-height: 1.5; }
-    .ledger { max-height: 110px; overflow-y: auto; background: #030712; border: 1px solid #1e293b; border-radius: 6px; padding: 0.5rem; margin-top: 0.65rem; font-family: Consolas, monospace; font-size: 0.75rem; color: #cbd5e1; }
-    .badge-box { font-family: Consolas, monospace; font-size: 0.8rem; color: #38bdf8; background: #030712; padding: 0.45rem 0.65rem; border-radius: 6px; border: 1px solid #1e293b; margin-bottom: 0.75rem; }
-    .stats { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 0.85rem 0; font-family: Consolas, monospace; font-size: 0.82rem; }
-    .stat { background: #1e293b; border: 1px solid #334155; padding: 0.4rem 0.75rem; border-radius: 6px; }
-    .stat.ok { border-color: #10b981; color: #6ee7b7; }
-    .stat.err { border-color: #ef4444; color: #fca5a5; }
-    .stat.mint { border-color: #f59e0b; color: #fcd34d; }
-    .status { font-family: Consolas, monospace; font-size: 0.85rem; color: #34d399; margin-bottom: 0.65rem; }
-    canvas { width: 100%; max-height: 240px; object-fit: contain; background: #030712; border: 1px solid var(--border); border-radius: 8px; display: block; margin-bottom: 1rem; }
-    textarea {
-      width: 100%; box-sizing: border-box; background: #030712; border: 1px solid var(--border);
-      border-radius: 8px; padding: 0.85rem; color: #a5f3fc; font-family: Consolas, monospace; font-size: 0.85rem; margin-bottom: 1rem;
-    }
-    .log-box { max-height: 190px; overflow-y: auto; background: #030712; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; font-family: Consolas, monospace; font-size: 0.78rem; }
-    .pass { color: #34d399; padding: 0.2rem 0; border-bottom: 1px solid #111827; }
-    .fail { color: #f87171; padding: 0.2rem 0; border-bottom: 1px solid #111827; }
+    :root { --bg:#090d16; --card:#111827; --border:#1f2937; --green:#10b981; --blue:#3b82f6; --purple:#8b5cf6; --amber:#f59e0b; --danger:#ef4444; --text:#f3f4f6; --muted:#9ca3af; }
+    body { font-family:"Segoe UI",system-ui,sans-serif; max-width:1040px; margin:1.5rem auto; padding:0 1rem; background:var(--bg); color:var(--text); }
+    h2 { margin:0 0 .25rem; } .sub { color:var(--muted); font-size:.9rem; margin-bottom:1.25rem; }
+    .grid { display:grid; grid-template-columns:1.15fr .85fr; gap:1rem; margin-bottom:1rem; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:1rem; }
+    .wallet-card { background:linear-gradient(145deg,#0f172a,#111827); border:1px solid #1d4ed8; }
+    label { display:block; font-size:.8rem; font-weight:600; color:var(--muted); margin-bottom:.35rem; text-transform:uppercase; letter-spacing:.04em; }
+    input[type=password],select { width:100%; box-sizing:border-box; padding:.55rem .7rem; border-radius:6px; border:1px solid #374151; background:#030712; color:var(--text); font-family:Consolas,monospace; }
+    .btn-row { display:flex; gap:.6rem; flex-wrap:wrap; margin-bottom:.75rem; }
+    button { padding:.65rem 1.05rem; border-radius:6px; border:none; font-weight:600; cursor:pointer; }
+    button:hover { opacity:.92; }
+    .btn-folder { background:var(--purple); color:#fff; flex:1; } .btn-files { background:#0284c7; color:#fff; flex:1; }
+    .btn-carrier { background:#334155; color:#f8fafc; width:100%; margin-top:.4rem; }
+    .btn-decrypt { background:var(--green); color:#052e16; } .btn-img { background:var(--blue); color:#fff; }
+    .btn-reset-wallet { background:#374151; color:#fca5a5; font-size:.78rem; padding:.4rem .7rem; }
+    .wallet-balance { font-family:Consolas,monospace; font-size:2rem; font-weight:700; color:#38bdf8; margin:.35rem 0; }
+    .wallet-meta { font-family:Consolas,monospace; font-size:.8rem; color:#94a3b8; line-height:1.5; }
+    .ledger { max-height:110px; overflow-y:auto; background:#030712; border:1px solid #1e293b; border-radius:6px; padding:.5rem; margin-top:.65rem; font:0.75rem Consolas,monospace; color:#cbd5e1; }
+    .badge-box { font:0.8rem Consolas,monospace; color:#38bdf8; background:#030712; padding:.45rem .65rem; border-radius:6px; border:1px solid #1e293b; margin-bottom:.75rem; }
+    .stats { display:flex; gap:.75rem; flex-wrap:wrap; margin:.85rem 0; font:.82rem Consolas,monospace; }
+    .stat { background:#1e293b; border:1px solid #334155; padding:.4rem .75rem; border-radius:6px; }
+    .stat.ok { border-color:var(--green); color:#6ee7b7; } .stat.err { border-color:var(--danger); color:#fca5a5; }
+    .stat.mint { border-color:var(--amber); color:#fcd34d; }
+    .status { font:.85rem Consolas,monospace; color:#34d399; margin-bottom:.65rem; }
+    canvas { width:100%; max-height:240px; object-fit:contain; background:#030712; border:1px solid var(--border); border-radius:8px; display:block; margin-bottom:1rem; }
+    textarea { width:100%; box-sizing:border-box; background:#030712; border:1px solid var(--border); border-radius:8px; padding:.85rem; color:#a5f3fc; font:.85rem Consolas,monospace; margin-bottom:1rem; }
+    .log-box { max-height:190px; overflow-y:auto; background:#030712; border:1px solid var(--border); border-radius:8px; padding:.75rem; font:.78rem Consolas,monospace; }
+    .pass { color:#34d399; padding:.2rem 0; border-bottom:1px solid #111827; }
+    .fail { color:#f87171; padding:.2rem 0; border-bottom:1px solid #111827; }
   </style>
 </head>
 <body>
-  <h2>ShredderVault Batch Decryptor & Genesis Wallet (1 Bit = 1 Token)</h2>
-  <div class="sub">Reads all encrypted <code>.js</code> vaults directly from your <code>ShredderVault</code> folder (or multi-file selection), verifies SHA-256 metadata hashes, credits <strong>1 Genesis Token per 1 bit</strong> of verified data, and reconstructs only the base image or text view.</div>
-
+  <h2>ShredderVault Batch Decryptor &amp; Genesis Wallet (1 Bit = 1 Token)</h2>
+  <div class="sub">Reads encrypted <code>.js</code> vaults, verifies SHA-256 metadata, credits one Genesis Token per verified source bit, and safely reconstructs the carrier or text view.</div>
   <div class="grid">
-    <!-- Left Card: Folder / Multi-File Intake & Crypto -->
     <div class="card">
       <label>1. Load Encrypted Token Vaults (.js)</label>
       <div class="btn-row">
-        <button type="button" class="btn-folder" onclick="loadFromShredderVaultFolder()">
-          Open ShredderVault Folder (Read All .js)
-        </button>
-        <input type="file" id="multiJsInput" accept=".js" multiple style="display:none;" />
-        <button type="button" class="btn-files" onclick="document.getElementById('multiJsInput').click()">
-          Batch Select Multiple .js Files
-        </button>
+        <button type="button" class="btn-folder" onclick="loadFromShredderVaultFolder()">Open ShredderVault Folder (Read All .js)</button>
+        <input type="file" id="multiJsInput" accept=".js,text/javascript" multiple style="display:none" />
+        <button type="button" class="btn-files" onclick="document.getElementById('multiJsInput').click()">Batch Select Multiple .js Files</button>
       </div>
       <div id="loadedVaultsInfo" class="badge-box">No .js vaults loaded yet.</div>
-
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-        <div>
-          <label for="passphrase">2. AES-256-GCM Passphrase</label>
-          <input type="password" id="passphrase" value="VaultKey#2026!" />
-        </div>
-        <div>
-          <label for="viewMode">3. Safe Reconstruction Mode</label>
-          <select id="viewMode">
-            <option value="both">Base Image + Text View</option>
-            <option value="image">Base Image Version Only</option>
-            <option value="text">Text Output Only</option>
-          </select>
-        </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+        <div><label for="passphrase">2. AES-256-GCM Passphrase</label><input type="password" id="passphrase" value="VaultKey#2026!" /></div>
+        <div><label for="viewMode">3. Safe Reconstruction Mode</label><select id="viewMode"><option value="both">Base Image + Text View</option><option value="image">Base Image Version Only</option><option value="text">Text Output Only</option></select></div>
       </div>
-
-      <input type="file" id="customCarrierInput" accept="image/*" style="display:none;" />
-      <button type="button" class="btn-carrier" onclick="document.getElementById('customCarrierInput').click()">
-        Optional: Upload Matching Custom Base Carrier Image
-      </button>
+      <input type="file" id="customCarrierInput" accept="image/*" style="display:none" />
+      <button type="button" class="btn-carrier" onclick="document.getElementById('customCarrierInput').click()">Optional: Upload Matching Custom Base Carrier Image</button>
     </div>
-
-    <!-- Right Card: Built-in Genesis Wallet -->
     <div class="card wallet-card">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <label style="color:#60a5fa; margin:0;">Genesis Wallet (1 Bit = 1 Token)</label>
-        <button type="button" class="btn-reset-wallet" onclick="resetGenesisWallet()">Reset Wallet</button>
-      </div>
-      <div class="wallet-balance"><span id="walletBalance">0</span> <span style="font-size:1rem; color:#93c5fd;">GEN-TOK</span></div>
-      <div class="wallet-meta">
-        <div>Address: <span id="walletAddress" style="color:#e2e8f0;">--</span></div>
-        <div>Genesis Block: <span id="walletCreated">--</span></div>
-        <div>Total Verified Bits Credited: <span id="walletTotalBits" style="color:#34d399;">0 bits</span></div>
-      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center"><label style="color:#60a5fa;margin:0">Genesis Wallet (1 Bit = 1 Token)</label><button type="button" class="btn-reset-wallet" onclick="resetGenesisWallet()">Reset Wallet</button></div>
+      <div class="wallet-balance"><span id="walletBalance">0</span> <span style="font-size:1rem;color:#93c5fd">GEN-TOK</span></div>
+      <div class="wallet-meta"><div>Address: <span id="walletAddress" style="color:#e2e8f0">--</span></div><div>Genesis Block: <span id="walletCreated">--</span></div><div>Total Verified Bits Credited: <span id="walletTotalBits" style="color:#34d399">0 bits</span></div></div>
       <div id="walletLedger" class="ledger">Genesis block initialized. Decrypt verified batches to mint 1 token per bit.</div>
     </div>
   </div>
-
-  <div class="btn-row">
-    <button type="button" class="btn-decrypt" onclick="batchDecryptVerifyAndCredit()">
-      Decrypt All Vaults, Verify SHA-256 & Credit Genesis Wallet
-    </button>
-    <button type="button" class="btn-img" onclick="downloadReconstructedImage()">
-      Download Reconstructed Base Image (.png)
-    </button>
-  </div>
-
+  <div class="btn-row"><button type="button" class="btn-decrypt" onclick="batchDecryptVerifyAndCredit()">Decrypt All Vaults, Verify SHA-256 &amp; Credit Genesis Wallet</button><button type="button" class="btn-img" onclick="downloadReconstructedImage()">Download Reconstructed Base Image (.png)</button></div>
   <div id="status" class="status">Ready. Select your ShredderVault folder or batch-select .js files.</div>
-
-  <div class="stats">
-    <div id="statFiles" class="stat">Vault Files: 0</div>
-    <div id="statVerified" class="stat ok">Verified Tokens: 0</div>
-    <div id="statFailed" class="stat err">Failed / Tampered: 0</div>
-    <div id="statMinted" class="stat mint">Wallet Credited: +0 GEN-TOK (0 bits)</div>
-  </div>
-
-  <div id="imageSection">
-    <label>Reconstructed Base Image Version (Visual Carrier + Verified Overlay)</label>
-    <canvas id="reconstructedCanvas" width="960" height="240"></canvas>
-  </div>
-
-  <div id="textSection">
-    <label>Reconstructed Text Representation (Raw Binary Export Blocked)</label>
-    <textarea id="reconstructedText" rows="5" readonly placeholder="Unshredded text summaries across loaded vaults will appear here..."></textarea>
-  </div>
-
-  <label>Per-Token SHA-256 Metadata Verification & Bit-Credit Log</label>
-  <div id="verificationLog" class="log-box">No tokens processed yet.</div>
+  <div class="stats"><div id="statFiles" class="stat">Vault Files: 0</div><div id="statVerified" class="stat ok">Verified Tokens: 0</div><div id="statFailed" class="stat err">Failed / Tampered: 0</div><div id="statMinted" class="stat mint">Wallet Credited: +0 GEN-TOK (0 bits)</div></div>
+  <div id="imageSection"><label>Reconstructed Base Image Version</label><canvas id="reconstructedCanvas" width="960" height="240"></canvas></div>
+  <div id="textSection"><label>Reconstructed Text Representation (Raw Binary Export Blocked)</label><textarea id="reconstructedText" rows="5" readonly placeholder="Decrypted text summaries will appear here..."></textarea></div>
+  <label>Per-Token SHA-256 Metadata Verification &amp; Bit-Credit Log</label><div id="verificationLog" class="log-box">No tokens processed yet.</div>
 
   <script>
-    const canvas = document.getElementById('reconstructedCanvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const canvas=document.getElementById('reconstructedCanvas');
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    let loadedVaults=[];
+    let carrierImage=new Image();
+    let reconstructedBytes=[];
 
-    let loadedVaults = []; // Array of { fileName, vault }
-    let carrierImage = new Image();
+    const DEFAULT_CARRIER='data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0f172a"/><stop offset=".5" stop-color="#1e3a8a"/><stop offset="1" stop-color="#064e3b"/></linearGradient></defs><rect width="1600" height="900" fill="url(#bg)"/><circle cx="800" cy="450" r="320" fill="none" stroke="rgba(56,189,248,.22)" stroke-width="4"/></svg>`);
+    carrierImage.onload=()=>renderCarrier(); carrierImage.src=DEFAULT_CARRIER;
 
-    // Default preloaded carrier matching the shredder
-    const DEFAULT_CARRIER = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
-      <svg xmlns="http://w3.org" width="1600" height="900">
-        <defs>
-          <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#0f172a"/>
-            <stop offset="50%" stop-color="#1e3a8a"/>
-            <stop offset="100%" stop-color="#064e3b"/>
-          </linearGradient>
-        </defs>
-        <rect width="1600" height="900" fill="url(#bg)"/>
-        <circle cx="800" cy="450" r="320" fill="none" stroke="rgba(56,189,248,0.22)" stroke-width="4"/>
-        <text x="60" y="90" fill="rgba(255,255,255,0.32)" font-family="monospace" font-size="36">PRELOADED HIGH-RES VISUAL CARRIER</text>
-      </svg>
-    `);
-    carrierImage.src = DEFAULT_CARRIER;
+    const WALLET_STORAGE_KEY='shredder_genesis_wallet_v1';
+    let genesisWallet;
 
-    // ==================== BUILT-IN GENESIS WALLET ====================
-    const WALLET_STORAGE_KEY = 'shredder_genesis_wallet_v1';
+    function loadOrCreateGenesisWallet(){
+      let wallet=null; try{wallet=JSON.parse(localStorage.getItem(WALLET_STORAGE_KEY));}catch{}
+      if(!wallet||!wallet.address){
+        const random=crypto.getRandomValues(new Uint8Array(16));
+        wallet={address:'GEN-'+Array.from(random,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase(),balance:0,totalBits:0,createdAt:new Date().toISOString(),ledger:[],processedVaultHashes:{}};
+        localStorage.setItem(WALLET_STORAGE_KEY,JSON.stringify(wallet));
+      }
+      wallet.processedVaultHashes=wallet.processedVaultHashes||{}; wallet.ledger=wallet.ledger||[];
+      genesisWallet=wallet; updateWalletUI();
+    }
 
-    function loadOrCreateGenesisWallet() {
-      let wallet = null;
-      try {
-        wallet = JSON.parse(localStorage.getItem(WALLET_STORAGE_KEY));
-      } catch {}
+    function saveGenesisWallet(){ localStorage.setItem(WALLET_STORAGE_KEY,JSON.stringify(genesisWallet)); updateWalletUI(); }
 
-      if (!wallet || !wallet.address) {
-        const randBytes = crypto.getRandomValues(new Uint8Array(16));
+    function updateWalletUI(){
+      document.getElementById('walletBalance').textContent=Number(genesisWallet.balance||0).toLocaleString();
+      document.getElementById('walletAddress').textContent=genesisWallet.address;
+      document.getElementById('walletCreated').textContent=new Date(genesisWallet.createdAt).toLocaleString();
+      document.getElementId?.('walletTotalBits');
+      document.getElementById('walletTotalBits').textContent=`${Number(genesisWallet.totalBits||0).toLocaleString()} bits`;
+      document.getElementById('walletLedger').innerHTML=genesisWallet.ledger.length?genesisWallet.ledger.slice(-12).reverse().map(x=>`<div>${escapeHtml(x)}</div>`).join(''):'Genesis block initialized. Decrypt verified batches to mint 1 token per bit.';
+    }
+
+    function resetGenesisWallet(){
+      if(!confirm('Reset this local Genesis Wallet? This cannot be undone.'))return;
+      localStorage.removeItem(WALLET_STORAGE_KEY); loadOrCreateGenesisWallet();
+      document.getElementById('statMinted').textContent='Wallet Credited: +0 GEN-TOK (0 bits)';
+      document.getElementById('verificationLog').textContent='Wallet reset. No tokens processed yet.';
+    }
+
+    document.getElementById('multiJsInput').addEventListener('change',async e=>loadFiles(Array.from(e.target.files||[])));
+
+    document.getElementById('customCarrierInput').addEventListener('change',e=>{
+      const file=e.target.files?.[0]; if(!file)return;
+      const url=URL.createObjectURL(file); const img=new Image();
+      img.onload=()=>{carrierImage=img;URL.revokeObjectURL(url);renderCarrier();document.getElementById('status').textContent=`Custom carrier loaded: ${file.name}`};
+      img.onerror=()=>{URL.revokeObjectURL(url);document.getElementById('status').textContent='Could not load custom carrier.'};
+      img.src=url;
+    });
+
+    async function loadFromShredderVaultFolder(){
+      if(!window.showDirectoryPicker){document.getElementById('status').textContent='Folder access requires a Chromium browser that supports showDirectoryPicker.';return}
+      try{
+        const directory=await window.showDirectoryPicker({mode:'read'}); const files=[];
+        for await(const entry of directory.values()) if(entry.kind==='file'&&entry.name.toLowerCase().endsWith('.js')) files.push(await entry.getFile());
+        await loadFiles(files);
+      }catch(error){if(error.name==='AbortError')document.getElementById('status').textContent='Folder selection cancelled.';else document.getElementById('status').textContent=`Folder error: ${error.message}`}
+    }
+
+    async function loadFiles(files){
+      const jsFiles=files.filter(f=>f.name.toLowerCase().endsWith('.js')).sort((a,b)=>a.name.localeCompare(b.name));
+      loadedVaults=[];
+      for(const file of jsFiles){
+        try{const text=await file.text(); const vault=parseVaultSource(text); if(vault)loadedVaults.push({fileName:file.name,vault});}
+        catch(error){console.warn(error)}
+      }
+      document.getElementById('statFiles').textContent=`Vault Files: ${loadedVaults.length}`;
+      document.getElementById('loadedVaultsInfo').textContent=loadedVaults.length?loadedVaults.map(x=>x.fileName).join(', '):'No valid .js vaults loaded.';
+      document.getElementById('status').textContent=loadedVaults.length?`${loadedVaults.length} vault file(s) loaded.`:'No valid vault files found.';
+    }
+
+    function parseVaultSource(text){
+      const match=text.match(/const\s+VAULT\s*=\s*(\{[\s\S]*?\});\s*(?:export\s*\{|export\s*default)/);
+      if(!match){const exported=text.match(/(?:const\s+)?VAULT\s*=\s*(\{[\s\S]*?\})\s*;?/);if(!exported)return null;try{return JSON.parse(exported[1])}catch{return null}}
+      try{return JSON.parse(match[1])}catch{return null}
+    }
+
+    function base64ToBytes(value){const binary=atob(value);const bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);return bytes}
+    async function sha256Hex(bytes){const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')}
+    async function deriveKey(passphrase,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(passphrase),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',salt,iterations:250000},material,{name:'AES-GCM',length:256},false,['decrypt'])}
+
+    async function decryptToken(token,passphrase){
+      const key=await deriveKey(passphrase,base64ToBytes(token.salt));
+      const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:base64ToBytes(token.iv)},key,base64ToBytes(token.ciphertext));
+      return new Uint8Array(plain);
+    }
+
+    async function batchDecryptVerifyAndCredit(){
+      if(!loadedVaults.length){document.getElementById('status').textContent='Load at least one vault .js file first.';return}
+      const passphrase=document.getElementById('passphrase').value; if(!passphrase){document.getElementById('status').textContent='A passphrase is required.';return}
+      document.getElementById('verificationLog').innerHTML=''; document.getElementById('statVerified').textContent='Verified Tokens: 0'; document.getElementById('statFailed').textContent='Failed / Tampered: 0';
+      let verified=0,failed=0,newlyMinted=0,newBits=0,reconstructed=[];
+      for(const entry of loadedVaults){
+        const vault=entry.vault;
+        if(vault.format&&vault.format!=='ShredderVault-iBit'){addLog(entry.fileName,'Unsupported vault format','fail');failed++;continue}
+        for(const token of vault.tokens||[]){
+          try{
+            const bytes=await decryptToken(token,passphrase); const actualHash=await sha256Hex(bytes);
+            if(actualHash!==token.sha256)throw new Error('SHA-256 metadata mismatch');
+            const validLength=Number.isInteger(token.bytes)?bytes.length===token.bytes:true;
+            if(!validLength)throw new Error('Decrypted byte count mismatch');
+            reconstructed.push(...bytes); verified++;
+            const bits=Number.isInteger(token.bitCount)?Math.max(0,token.bitCount):bytes.length*8;
+            addLog(`#${token.index??0} ${entry.fileName}`,`PASS SHA-256 ${actualHash.slice(0,16)}… | +${bits} bits`,'pass');
+            if(!genesisWallet.processedVaultHashes[`${entry.fileName}:${actualHash}:${token.index}`]){genesisWallet.processedVaultHashes[`${entry.fileName}:${actualHash}:${token.index}`]=true;newlyMinted++;newBits+=bits}
+          }catch(error){failed++;addLog(`#${token.index??0} ${entry.fileName}`,`FAIL ${error.message}`,'fail')}
+        }
+      }
+      reconstructedBytes=Uint8Array.from(reconstructed);
+      if(newBits>0){genesisWallet.balance+=newlyMinted;genesisWallet.totalBits+=newBits;genesisWallet.ledger.unshift(`+${newlyMinted} GEN-TOK / ${newBits} verified bits @ ${new Date().toLocaleString()}`);saveGenesisWallet()}
+      document.getElementById('statVerified').textContent=`Verified Tokens: ${verified}`; document.getElementById('statFailed').textContent=`Failed / Tampered: ${failed}`;
+      document.getElementById('statMinted').textContent=`Wallet Credited: +${newlyMinted} GEN-TOK (${newBits} bits)`;
+      renderText(reconstructedBytes); renderCarrier();
+      document.getElementById('status').textContent=failed?`Completed with ${failed} failed/tampered token(s).`:`Verified ${verified} token(s); reconstructed ${reconstructedBytes.length} bytes.`;
+    }
+
+    function addLog(label,message,type){const box=document.getElementById('verificationLog');const div=document.createElement('div');div.className=type;div.textContent=`${label}: ${message}`;box.appendChild(div);box.scrollTop=box.scrollHeight}
+
+    function renderText(bytes){
+      const mode=document.getElementById('viewMode').value; document.getElementById('textSection').style.display=(mode==='text'||mode==='both')?'block':'none';
+      if(mode==='text'||mode==='both'){
+        const first=bytes.slice(0,4096); let text=''; try{text=new TextDecoder('utf-8',{fatal:false}).decode(first)}catch{text=''}
+        document.getElementById('reconstructedText').value=text?text:`[Binary payload: ${bytes.length} decrypted bytes; text rendering withheld.]`;
+      }
+    }
+
+    function renderCarrier(){
+      const mode=document.getElementById('viewMode').value; document.getElementById('imageSection').style.display=(mode==='image'||mode==='both')?'block':'none';
+      if(mode==='text')return;
+      ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#030712';ctx.fillRect(0,0,canvas.width,canvas.height);
+      if(carrierImage.complete&&carrierImage.naturalWidth){ctx.drawImage(carrierImage,0,0,canvas.width,canvas.height)}
+      ctx.fillStyle='rgba(3,7,18,.72)';ctx.fillRect(0,canvas.height-48,canvas.width,48);
+      ctx.fillStyle='#34d399';ctx.font='14px Consolas,monospace';ctx.fillText(`${reconstructedBytes.length} decrypted bytes`,12,canvas.height-18);
+      ctx.fillStyle='#38bdf8';ctx.fillText(`${document.getElementById('statVerified').textContent}`,240,canvas.height-18);
+    }
+
+    function downloadReconstructedImage(){
+      canvas.toBlob(blob=>{if(!blob)return;const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='reconstructed_base_image.png';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)},'image/png');
+    }
+
+    function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+
+    loadOrCreateGenesisWallet();
+  </script>
+</body>
+</html>
