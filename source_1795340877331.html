@@ -3,252 +3,102 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Live-Streaming i-Bit Visual Data Shredder & Auto-Updating GGUF DB</title>
+  <meta name="color-scheme" content="dark" />
+  <title>Shredder — Automatic Token Capacity</title>
   <style>
-    :root {
-      --bg: #0b0f17;
-      --panel: #121826;
-      --border: #243047;
-      --text: #e6edf7;
-      --muted: #8fa1bf;
-      --accent: #38bdf8;
-      --accent2: #22c55e;
-      --warn: #f59e0b;
-      --danger: #ef4444;
-    }
-    * { box-sizing: border-box; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    body {
-      margin: 0; padding: 24px; background: var(--bg); color: var(--text);
-      display: flex; justify-content: center;
-    }
-    .app {
-      width: 100%; max-width: 1020px; background: var(--panel);
-      border: 1px solid var(--border); border-radius: 12px; padding: 24px;
-    }
-    h1 { margin: 0 0 8px; font-size: 1.4rem; }
-    p.sub { margin: 0 0 20px; color: var(--muted); font-size: 0.92rem; }
-    .section {
-      border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px;
-      background: rgba(255, 255, 255, 0.015);
-    }
-    .section h3 { margin: 0 0 10px; font-size: 1rem; color: var(--accent); }
-    label { display: block; font-size: 0.85rem; color: var(--muted); margin: 10px 0 4px; }
-    input[type="text"], input[type="number"] {
-      width: 100%; background: #090d14; color: var(--text);
-      border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-size: 0.9rem;
-    }
-    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-    .badge {
-      display: inline-block; margin-top: 8px; padding: 4px 10px; border-radius: 999px;
-      background: #172236; color: var(--accent); font-size: 0.8rem;
-    }
-    .badge-live {
-      background: rgba(34, 197, 94, 0.16); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4);
-    }
-    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
-    button {
-      border: none; border-radius: 7px; padding: 11px 16px; font-weight: 600;
-      cursor: pointer; font-size: 0.88rem; transition: opacity 0.15s;
-    }
-    button:hover { opacity: 0.9; }
-    .btn-folder { background: var(--accent2); color: #031409; }
-    .btn-secondary { background: #26334d; color: var(--text); }
-    .btn-danger { background: var(--danger); color: #fff; }
-    .toggle-row {
-      display: flex; flex-wrap: wrap; align-items: center; gap: 18px;
-      margin-top: 12px; padding: 10px 12px; background: #090d14;
-      border: 1px solid var(--border); border-radius: 7px;
-    }
-    .toggle-row label { margin: 0; display: flex; align-items: center; gap: 8px; color: var(--text); cursor: pointer; }
-    .terminal {
-      margin-top: 16px; background: #06090f; border: 1px solid var(--border);
-      border-radius: 8px; padding: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.82rem; color: #7ee787; max-height: 250px; overflow-y: auto; white-space: pre-wrap;
-    }
-    .db-stats {
-      margin-top: 10px; font-size: 0.85rem; color: var(--warn); font-weight: 500;
-    }
+    :root { color-scheme: dark; --bg:#0b0f17; --panel:#121826; --border:#243047; --text:#e6edf7; --muted:#8fa1bf; --accent:#38bdf8; --danger:#ef4444; }
+    * { box-sizing:border-box; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+    body { margin:0; padding:24px; background:var(--bg); color:var(--text); }
+    main { max-width:860px; margin:auto; padding:24px; background:var(--panel); border:1px solid var(--border); border-radius:12px; }
+    h1 { margin-top:0; font-size:1.4rem; }
+    p { color:var(--muted); line-height:1.5; }
+    section { margin-top:18px; padding:16px; border:1px solid var(--border); border-radius:8px; }
+    h2 { margin:0 0 12px; color:var(--accent); font-size:1rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+    label { display:block; margin:8px 0 5px; color:var(--muted); font-size:.9rem; }
+    input { width:100%; padding:10px; color:var(--text); background:#090d14; border:1px solid var(--border); border-radius:6px; font-size:1rem; }
+    input[readonly] { color:var(--accent); font-weight:700; }
+    .hint { margin:8px 0 0; font-size:.85rem; }
+    .status { padding:12px; border-radius:6px; background:#090d14; }
+    .error { color:#fca5a5; }
+    button { margin-top:14px; padding:10px 14px; border:0; border-radius:6px; background:#26334d; color:var(--text); font-weight:600; cursor:pointer; }
+    button:focus-visible, input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   </style>
 </head>
 <body>
-  <div class="app">
-    <h1>Multi-Type i-Bit Visual Data Shredder &amp; Auto-Updating GGUF DB</h1>
-    <p class="sub">
-      Continuously shreds incoming data flows into i-bit tokens, encrypts with AES-256-GCM, re-shreds &amp; re-encrypts
-      all outcomes (including generated <code>.js</code> artifacts), and automatically updates your folder-backed <code>.gguf</code> database in real time.
-    </p>
+  <main>
+    <h1>Automatic Token Capacity</h1>
+    <p>Max Tokens Cap is calculated from the selected input size and Token Bit Size. A token occupies whole bytes, so the byte width is <code>ceil(i / 8)</code>; this does not perform true bit-level tokenization.</p>
 
-    <!-- 1. Data Input -->
-    <div class="section">
-      <h3>1. Data Input (Multi-Type Upload or Live Stream)</h3>
-      <label for="dataFile">Upload Data File (Any Type: JSON, CSV, PDF, ZIP, IMG, BIN)</label>
+    <section aria-labelledby="inputHeading">
+      <h2 id="inputHeading">Input</h2>
+      <label for="dataFile">Select a data file</label>
       <input type="file" id="dataFile" />
-      <div class="badge" id="activeSourceBadge">Active Source: Default Vault Stream Payload</div>
-    </div>
+      <p class="hint" id="activeSourceBadge" aria-live="polite">No file selected (0 bytes).</p>
+    </section>
 
-    <!-- 2. Base Carrier Image -->
-    <div class="section">
-      <h3>2. Base Carrier Image (Supports Very Large / 4K+ Images)</h3>
-      <label for="carrierFile">Upload Base Image (4K / High-Resolution Carrier)</label>
-      <input type="file" id="carrierFile" accept="image/*" />
-      <div class="badge" id="activeCarrierBadge">Active Carrier: Built-in Preloaded Carrier (1600×900)</div>
-    </div>
-
-    <!-- 3. Parameters & Real-Time Stream Controls -->
-    <div class="section">
-      <h3>3. Shredding, AES-256-GCM &amp; Real-Time GGUF Auto-Sync</h3>
-      <div class="grid-3">
+    <section aria-labelledby="settingsHeading">
+      <h2 id="settingsHeading">Token settings</h2>
+      <div class="grid">
         <div>
           <label for="tokenBitSize">Token Bit Size (i)</label>
-          <input type="number" id="tokenBitSize" value="1" min="1" max="256" step="1" />
+          <input type="number" id="tokenBitSize" value="1" min="1" max="256" step="1" inputmode="numeric" />
         </div>
         <div>
-          <label for="maxTokensCap">Max Tokens Cap</label>
-          <input type="number" id="maxTokensCap" value="1000000" min="1" max="10000000" />
-        </div>
-        <div>
-          <label for="streamIntervalMs">Continuous Stream Interval (ms)</label>
-          <input type="number" id="streamIntervalMs" value="2000" min="500" step="250" />
+          <label for="maxTokensCap">Max Tokens Cap (automatic)</label>
+          <input type="number" id="maxTokensCap" value="0" readonly aria-describedby="capHint" />
+          <p class="hint" id="capHint">Calculated as ceil(file bytes / ceil(i / 8)). Updates when the file or bit size changes.</p>
         </div>
       </div>
-
-      <div class="toggle-row">
-        <label>
-          <input type="checkbox" id="chkAutoOnEdit" checked />
-          Auto-update GGUF DB on file upload
-        </label>
-        <label>
-          <input type="checkbox" id="chkSaveJsPerBatch" />
-          Also write individual <code>.js</code> file per stream tick to folder
-        </label>
-        <span class="badge" id="streamStateBadge">Stream: IDLE</span>
-      </div>
-
-      <div class="actions">
-        <button class="btn-secondary" id="btnPickFolder">Choose Storage Folder</button>
-        <button class="btn-folder" id="btnStartStream">Start Continuous Auto-Shred Stream</button>
-        <button class="btn-danger" id="btnStopStream" style="display:none;">Stop Stream</button>
-      </div>
-      <div class="db-stats" id="dbStats">GGUF DB Status: Ready (0 batches committed | Queue: 0)</div>
-    </div>
-
-    <!-- Running Terminal -->
-    <div class="terminal" id="terminal">shredder@vault:~$ ready [auto-sync engine initialized]</div>
-  </div>
+      <p class="status" id="capacityStatus" role="status" aria-live="polite">Select a file or choose a token bit size to calculate capacity.</p>
+    </section>
+  </main>
 
   <script>
-    const MASTER_PASSPHRASE = 'VaultKey#2026!';
-    const DEFAULT_GGUF_DB_NAME = 'vault_outcomes_db.gguf';
-    const DEFAULT_VAULT_ID = 'PK-LHR-904';
+    'use strict';
 
-    /**
-     * GGUF v3 Binary Database Engine with Serialized Real-Time Stream Queue
-     */
-    class GGUFDatabaseStore {
-      constructor() {
-        this.enc = new TextEncoder();
-        this.dec = new TextDecoder();
-        this.cachedKey = null;
-        this.cachedKeySignature = null;
+    const MAX_TOKEN_CAP = 10_000_000;
+    const dataFileInput = document.getElementById('dataFile');
+    const tokenBitSizeInput = document.getElementById('tokenBitSize');
+    const maxTokensCapInput = document.getElementById('maxTokensCap');
+    const activeSourceBadge = document.getElementById('activeSourceBadge');
+    const capacityStatus = document.getElementById('capacityStatus');
+
+    function updateCapacity() {
+      const bitSize = Number(tokenBitSizeInput.value);
+      if (!Number.isInteger(bitSize) || bitSize < 1 || bitSize > 256) {
+        maxTokensCapInput.value = '';
+        capacityStatus.textContent = 'Enter a whole-number Token Bit Size from 1 to 256.';
+        capacityStatus.classList.add('error');
+        tokenBitSizeInput.setAttribute('aria-invalid', 'true');
+        return;
       }
 
-      toHex(u8) {
-        return Array.from(u8).map((b) => b.toString(16).padStart(2, '0')).join('');
+      tokenBitSizeInput.removeAttribute('aria-invalid');
+      const file = dataFileInput.files && dataFileInput.files[0];
+      const byteLength = file ? file.size : 0;
+      const bytesPerToken = Math.max(1, Math.ceil(bitSize / 8));
+      const requiredTokens = Math.ceil(byteLength / bytesPerToken);
+
+      maxTokensCapInput.value = String(requiredTokens);
+      activeSourceBadge.textContent = file
+        ? `Selected: ${file.name} (${byteLength.toLocaleString()} bytes)`
+        : 'No file selected (0 bytes).';
+
+      if (requiredTokens > MAX_TOKEN_CAP) {
+        capacityStatus.textContent = `${requiredTokens.toLocaleString()} tokens are required, exceeding the supported limit of ${MAX_TOKEN_CAP.toLocaleString()}. Choose a smaller file or increase Token Bit Size; the input will not be silently truncated.`;
+        capacityStatus.classList.add('error');
+        maxTokensCapInput.setAttribute('aria-invalid', 'true');
+      } else {
+        capacityStatus.classList.remove('error');
+        maxTokensCapInput.removeAttribute('aria-invalid');
+        capacityStatus.textContent = `${requiredTokens.toLocaleString()} tokens required (${bytesPerToken} byte${bytesPerToken === 1 ? '' : 's'} per token).`;
       }
+    }
 
-      toBase64(u8) {
-        let bin = '';
-        const chunk = 0x8000;
-        for (let i = 0; i < u8.length; i += chunk) {
-          bin += String.fromCharCode.apply(null, u8.subarray(i, i + chunk));
-        }
-        return btoa(bin);
-      }
-
-      async sha256Hex(u8) {
-        const digest = await crypto.subtle.digest('SHA-256', u8);
-        return this.toHex(new Uint8Array(digest));
-      }
-
-      shredBytes(bytes, tokenBitSize = 1, maxTokensCap = 1000000, carrierWidth = 1600, carrierHeight = 900) {
-        const bytesPerToken = Math.max(1, Math.ceil(tokenBitSize / 8));
-        const neededTokens = Math.min(maxTokensCap, Math.max(1, Math.ceil(bytes.byteLength / bytesPerToken)));
-        const padded = new Uint8Array(neededTokens * bytesPerToken);
-        padded.set(bytes.subarray(0, padded.byteLength));
-
-        const metadata = [];
-        const totalPixels = Math.max(1, carrierWidth * carrierHeight);
-
-        for (let idx = 0; idx < neededTokens; idx++) {
-          const byteOffset = idx * bytesPerToken;
-          const pixelIndex = (idx * 7919) % totalPixels;
-          metadata.push({
-            tokenIndex: idx,
-            bitOffset: idx * tokenBitSize,
-            bitSize: tokenBitSize,
-            byteOffset,
-            validBytes: Math.min(bytesPerToken, Math.max(0, bytes.byteLength - byteOffset)),
-            carrierCoord: {
-              x: pixelIndex % carrierWidth,
-              y: Math.floor(pixelIndex / carrierWidth),
-            },
-          });
-        }
-
-        return {
-          shreddedBytes: padded,
-          perTokenMetadata: metadata,
-          originalByteLength: bytes.byteLength,
-          tokenCount: neededTokens,
-          effectiveCap: maxTokensCap,
-        };
-      }
-
-      async deriveKey(passphrase, salt, iterations = 120000) {
-        const sig = `${passphrase}:${this.toHex(salt)}:${iterations}`;
-        if (this.cachedKey && this.cachedKeySignature === sig) {
-          return this.cachedKey;
-        }
-        const baseKey = await crypto.subtle.importKey(
-          'raw',
-          this.enc.encode(passphrase),
-          'PBKDF2',
-          false,
-          ['deriveKey']
-        );
-        const derived = await crypto.subtle.deriveKey(
-          { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
-          baseKey,
-          { name: 'AES-GCM', length: 256 },
-          false,
-          ['encrypt']
-        );
-        this.cachedKey = derived;
-        this.cachedKeySignature = sig;
-        return derived;
-      }
-
-      async encryptAesGcm(aesKey, aadString, plainBytes) {
-        const iv = crypto.getRandomValues(new Uint8Array(12));
-        const cipherBuf = await crypto.subtle.encrypt(
-          {
-            name: 'AES-GCM',
-            iv,
-            additionalData: this.enc.encode(aadString),
-          },
-          aesKey,
-          plainBytes
-        );
-        return {
-          ivHex: this.toHex(iv),
-          cipherBytes: new Uint8Array(cipherBuf),
-        };
-      }
-
-      parseExistingGGUF(arrayBuffer) {
-        const view = new DataView(arrayBuffer);
-        const u8 = new Uint8Array(arrayBuffer);
-        let pos = 0;
-
-        const magic = this.dec.decode(u8.subarray(0, 4));
-        if (magic !== 'GGUF') throw new Error('Invalid GGUF header magic.');
+    dataFileInput.addEventListener('change', updateCapacity);
+    tokenBitSizeInput.addEventListener('input', updateCapacity);
+    updateCapacity();
+  </script>
+</body>
+</html>
