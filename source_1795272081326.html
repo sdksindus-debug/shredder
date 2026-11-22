@@ -48,7 +48,7 @@
       <div id="imageFileStatus" class="file-badge">Active Carrier: Built-in Preloaded Carrier (1600×900)</div>
       <div class="row">
         <div><label for="bitWidth">Token Bit Size (i)</label><input type="number" id="bitWidth" value="32" min="4" max="512" /></div>
-        <div><label for="maxTokens">Max Tokens Cap</label><input type="number" id="maxTokens" value="256" min="1" max="20000" /></div>
+        <div><label for="maxTokens">Max Tokens Cap (auto-sized)</label><input type="number" id="maxTokens" value="256" min="1" max="20000" /></div>
       </div>
       <div style="margin-top: 0.65rem;"><label for="passphrase">AES-256-GCM Passphrase</label><input type="password" id="passphrase" value="VaultKey#2026!" /></div>
     </div>
@@ -85,6 +85,7 @@
       offscreenCanvas.width = loadedImage.naturalWidth || 1600;
       offscreenCanvas.height = loadedImage.naturalHeight || 900;
       compositeAndRenderPreview();
+      updateMaxTokensForPayload();
     };
     loadedImage.src = DEFAULT_CARRIER;
 
@@ -94,6 +95,7 @@
       uploadedDataBytes = new Uint8Array(await file.arrayBuffer());
       uploadedDataMeta = { fileName: file.name, mimeType: file.type || 'application/octet-stream', sizeBytes: file.size };
       document.getElementById('dataFileStatus').textContent = `Uploaded Data: ${file.name} | Type: ${uploadedDataMeta.mimeType} | Size: ${file.size.toLocaleString()} bytes`;
+      updateMaxTokensForPayload();
       compositeAndRenderPreview();
     });
 
@@ -115,13 +117,28 @@
     });
 
     document.getElementById('fallbackText').addEventListener('input', () => {
-      if (!uploadedDataBytes) compositeAndRenderPreview();
+      if (!uploadedDataBytes) {
+        updateMaxTokensForPayload();
+        compositeAndRenderPreview();
+      }
     });
+
+    document.getElementById('bitWidth').addEventListener('input', updateMaxTokensForPayload);
 
     function getActivePayload() {
       if (uploadedDataBytes && uploadedDataMeta) return { fileName: uploadedDataMeta.fileName, mimeType: uploadedDataMeta.mimeType, bytes: uploadedDataBytes };
       const txt = document.getElementById('fallbackText').value;
       return { fileName: 'inline_payload.txt', mimeType: 'text/plain', bytes: new TextEncoder().encode(txt) };
+    }
+
+    // Keep the cap high enough to fit the active payload using the selected token width.
+    function updateMaxTokensForPayload() {
+      const bitWidth = Number.parseInt(document.getElementById('bitWidth').value, 10);
+      if (!Number.isFinite(bitWidth) || bitWidth < 4 || bitWidth > 512) return;
+      const bytesPerToken = Math.ceil(bitWidth / 8);
+      const payloadLength = getActivePayload().bytes.length;
+      const requiredTokens = Math.max(1, Math.ceil(payloadLength / bytesPerToken));
+      document.getElementById('maxTokens').value = Math.min(20000, requiredTokens);
     }
 
     function compositeAndRenderPreview() {
@@ -137,13 +154,11 @@
       offscreenCtx.fillRect(0, Math.floor(h * 0.42), w, bannerH);
       offscreenCtx.fillStyle = '#38bdf8';
       offscreenCtx.font = `bold ${Math.max(20, Math.floor(bannerH * 0.36))}px Consolas, monospace`;
-      const bannerText = payload.mimeType === 'text/plain' ? payload.bytes.length ? document.getElementById('fallbackText').value.slice(0, 75) : '' : `[MULTI-TYPE STREAM] ${payload.fileName} (${payload.mimeType}, ${payload.bytes.length.toLocaleString()} B)`;
+      const bannerText = payload.mimeType === 'text/plain' ? document.getElementById('fallbackText').value.slice(0, 75) : `[MULTI-TYPE STREAM] ${payload.fileName} (${payload.mimeType}, ${payload.bytes.length.toLocaleString()} B)`;
       offscreenCtx.fillText(bannerText, Math.max(20, w * 0.03), Math.floor(h * 0.42) + bannerH * 0.62, w * 0.94);
 
-      const pw = previewCanvas.width;
-      const ph = previewCanvas.height;
-      previewCtx.clearRect(0, 0, pw, ph);
-      previewCtx.drawImage(offscreenCanvas, 0, 0, pw, ph);
+      previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      previewCtx.drawImage(offscreenCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
     }
 
     function bytesToBase64(bytes) {
@@ -153,32 +168,21 @@
       return btoa(binary);
     }
 
-    function base64ToBytes(base64) {
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      return bytes;
-    }
-
     async function sha256Hex(bytes) {
       const digest = await crypto.subtle.digest('SHA-256', bytes);
       return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
     }
 
     async function deriveKey(passphrase, salt) {
-      const encoder = new TextEncoder();
-      const material = await crypto.subtle.importKey('raw', encoder.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+      const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']);
       return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 250000 }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
     }
 
     function splitIntoTokens(bytes, bitWidth, maxTokens) {
       const bitsPerToken = Math.max(4, Math.min(512, bitWidth));
       const tokenByteLength = Math.ceil(bitsPerToken / 8);
-      const limit = Math.max(1, maxTokens);
       const tokens = [];
-      for (let i = 0, tokenIndex = 0; i < bytes.length && tokenIndex < limit; i += tokenByteLength, tokenIndex++) {
-        tokens.push(bytes.slice(i, i + tokenByteLength));
-      }
+      for (let i = 0; i < bytes.length && tokens.length < maxTokens; i += tokenByteLength) tokens.push(bytes.slice(i, i + tokenByteLength));
       if (tokens.length === 0) tokens.push(new Uint8Array());
       return { tokens, bitsPerToken, tokenByteLength };
     }
@@ -192,7 +196,7 @@
     }
 
     async function carrierDataUrl() {
-      if (!loadedImage.complete) await new Promise(resolve => loadedImage.onload = resolve);
+      if (!loadedImage.complete) await new Promise((resolve, reject) => { loadedImage.onload = resolve; loadedImage.onerror = reject; });
       if (baseImageName === 'preloaded_carrier.svg') return DEFAULT_CARRIER;
       const canvas = document.createElement('canvas');
       canvas.width = loadedImage.naturalWidth;
@@ -207,30 +211,22 @@
       try {
         const passphrase = document.getElementById('passphrase').value;
         if (!passphrase) throw new Error('A passphrase is required.');
-        const bitWidth = parseInt(document.getElementById('bitWidth').value, 10);
-        const maxTokens = parseInt(document.getElementById('maxTokens').value, 10);
-        if (!Number.isFinite(bitWidth) || !Number.isFinite(maxTokens) || bitWidth < 4 || bitWidth > 512 || maxTokens < 1) throw new Error('Invalid token settings.');
+        const bitWidth = Number.parseInt(document.getElementById('bitWidth').value, 10);
+        if (!Number.isFinite(bitWidth) || bitWidth < 4 || bitWidth > 512) throw new Error('Token bit size must be from 4 to 512.');
+        updateMaxTokensForPayload();
+        const maxTokens = Number.parseInt(document.getElementById('maxTokens').value, 10);
 
         status.textContent = 'Preparing payload and splitting tokens...';
         const payload = getActivePayload();
         const originalSha256 = await sha256Hex(payload.bytes);
         const split = splitIntoTokens(payload.bytes, bitWidth, maxTokens);
-
         const vault = {
-          format: 'ShredderVault-iBit',
-          version: 1,
-          createdAt: new Date().toISOString(),
-          fileName: payload.fileName,
-          mimeType: payload.mimeType,
-          originalSizeBytes: payload.bytes.length,
-          originalSha256,
-          bitWidth: split.bitsPerToken,
-          tokenByteLength: split.tokenByteLength,
-          maxTokens,
-          tokenCount: split.tokens.length,
+          format: 'ShredderVault-iBit', version: 1, createdAt: new Date().toISOString(),
+          fileName: payload.fileName, mimeType: payload.mimeType, originalSizeBytes: payload.bytes.length,
+          originalSha256, bitWidth: split.bitsPerToken, tokenByteLength: split.tokenByteLength,
+          maxTokens, tokenCount: split.tokens.length,
           truncated: payload.bytes.length > split.tokens.length * split.tokenByteLength,
-          baseImage: { fileName: baseImageName, dataUrl: await carrierDataUrl() },
-          tokens: []
+          baseImage: { fileName: baseImageName, dataUrl: await carrierDataUrl() }, tokens: []
         };
 
         for (let i = 0; i < split.tokens.length; i++) {
@@ -241,8 +237,7 @@
         }
 
         const jsText = `const VAULT = ${JSON.stringify(vault, null, 2)};\nexport { VAULT };\nexport default VAULT;\n`;
-        preview.textContent = jsText.slice(0, 12000) + (jsText.length > 12000 ? '\n// ...' : '');
-
+        preview.textContent = jsText.slice(0, 12000) + (jsText.length > 12000 ? '\n// ... preview truncated' : '');
         const safeName = (payload.fileName || 'payload').replace(/[^a-z0-9._-]+/gi, '_').replace(/\.[^.]*$/, '');
         const fileName = `${safeName}_shredded_vault.js`;
 
@@ -253,12 +248,10 @@
           await writable.write(jsText);
           await writable.close();
           status.textContent = `Saved ${fileName} (${vault.tokenCount} encrypted token(s)).`;
-        } else if (mode === 'saveToFolder') {
-          status.textContent = 'Folder selection is not supported by this browser. The file will be downloaded instead.';
-          downloadTextFile(fileName, jsText);
         } else {
+          if (mode === 'saveToFolder') status.textContent = 'Folder selection is not supported by this browser; downloading the file instead.';
           downloadTextFile(fileName, jsText);
-          status.textContent = `Downloaded ${fileName} (${vault.tokenCount} encrypted token(s)).`;
+          if (mode !== 'saveToFolder') status.textContent = `Downloaded ${fileName} (${vault.tokenCount} encrypted token(s)).`;
         }
       } catch (error) {
         status.textContent = `Error: ${error.message || error}`;
@@ -277,6 +270,8 @@
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
+
+    updateMaxTokensForPayload();
   </script>
 </body>
 </html>
