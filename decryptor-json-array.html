@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShredderVault JSON Byte-Array Decryptor</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #090d16; color: #f3f4f6; }
+    body { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    main { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 1.25rem; }
+    label { display: block; margin: .9rem 0 .35rem; color: #9ca3af; font-size: .82rem; font-weight: 700; text-transform: uppercase; }
+    input, textarea { box-sizing: border-box; width: 100%; padding: .7rem; color: #e5e7eb; background: #030712; border: 1px solid #374151; border-radius: 6px; }
+    textarea { min-height: 260px; font: .85rem/1.45 Consolas, monospace; overflow-wrap: anywhere; }
+    button { margin: 1rem .5rem 0 0; padding: .7rem 1rem; border: 0; border-radius: 6px; background: #10b981; color: #052e16; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    #status { min-height: 1.4em; margin-top: 1rem; font: .88rem Consolas, monospace; color: #6ee7b7; overflow-wrap: anywhere; }
+    .hint { color: #9ca3af; font-size: .9rem; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ShredderVault JSON Byte-Array Decryptor</h1>
+    <p class="hint">Select one ShredderVault .js file. The page parses its JSON literal without evaluating the file, decrypts and verifies every token and the complete payload, then provides a valid JSON array of byte values (for example, <code>[255, 216, 255]</code>).</p>
+    <label for="vaultFile">Vault module (.js)</label>
+    <input id="vaultFile" type="file" accept=".js,text/javascript" />
+    <label for="passphrase">AES-256-GCM passphrase</label>
+    <input id="passphrase" type="password" value="VaultKey#2026!" autocomplete="current-password" />
+    <button id="decryptButton" type="button">Decrypt, verify &amp; build JSON byte array</button>
+    <button id="downloadButton" type="button" disabled>Download JSON array</button>
+    <div id="status" role="status" aria-live="polite">Ready.</div>
+    <label for="output">Verified payload as a JSON integer array</label>
+    <textarea id="output" readonly spellcheck="false" placeholder="The verified JSON array will appear here."></textarea>
+  </main>
+<script>
+'use strict';
+const fileInput = document.getElementById('vaultFile');
+const passphraseInput = document.getElementById('passphrase');
+const output = document.getElementById('output');
+const status = document.getElementById('status');
+const downloadButton = document.getElementById('downloadButton');
+let verifiedJson = '';
+let outputName = 'reconstructed_payload.json';
+
+function parseVaultSource(source) {
+  const assignment = /(?:const|let|var)\s+VAULT\s*=\s*/.exec(source);
+  if (!assignment) throw new Error('No VAULT assignment found.');
+  const start = assignment.index + assignment[0].length;
+  if (source[start] !== '{') throw new Error('VAULT must be a JSON object.');
+  let depth = 0, inString = false, escaped = false;
+  for (let i = start; i < source.length; i++) {
+    const ch = source[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}' && --depth === 0) {
+      try { return JSON.parse(source.slice(start, i + 1)); }
+      catch { throw new Error('VAULT object is not valid JSON.'); }
+    }
+  }
+  throw new Error('VAULT JSON object is incomplete.');
+}
+function validateVault(vault) {
+  if (!vault || vault.format !== 'ShredderVault-iBit' || vault.version !== 1) throw new Error('Unsupported vault format/version.');
+  if (!Array.isArray(vault.tokens) || !vault.tokens.length) throw new Error('Vault has no tokens.');
+  if (!Number.isSafeInteger(vault.originalSizeBytes) || vault.originalSizeBytes < 0) throw new Error('Invalid original payload size.');
+  if (!/^[a-f0-9]{64}$/i.test(vault.originalSha256 || '')) throw new Error('Invalid original SHA-256 metadata.');
+  if (vault.truncated) throw new Error('Vault is marked truncated; the complete payload cannot be reconstructed.');
+}
+function fromBase64(value) {
+  if (typeof value !== 'string' || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) throw new Error('Invalid base64 token field.');
+  const binary = atob(value);
+  return Uint8Array.from(binary, ch => ch.charCodeAt(0));
+}
+async function sha256Hex(bytes) {
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+async function deriveKey(passphrase, salt) {
+  const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 250000 }, material, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+}
+async function decryptToken(token, passphrase) {
+  const salt = fromBase64(token.salt), iv = fromBase64(token.iv), ciphertext = fromBase64(token.ciphertext);
+  if (salt.length !== 16 || iv.length !== 12 || ciphertext.length < 16) throw new Error('Invalid AES-GCM salt, IV, or ciphertext length.');
+  const key = await deriveKey(passphrase, salt);
+  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext));
+}
+async function reconstruct(vault, passphrase) {
+  const tokens = [...vault.tokens].sort((a, b) => Number(a.index) - Number(b.index));
+  const chunks = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (!Number.isSafeInteger(token.index) || token.index !== i) throw new Error(`Missing or invalid token index ${i}.`);
+    const bytes = await decryptToken(token, passphrase);
+    if (!Number.isSafeInteger(token.bytes) || token.bytes !== bytes.length) throw new Error(`Token ${i} byte count mismatch.`);
+    if (await sha256Hex(bytes) !== String(token.sha256 || '').toLowerCase()) throw new Error(`Token ${i} SHA-256 mismatch.`);
+    chunks.push(bytes);
+    status.textContent = `Verified token ${i + 1} of ${tokens.length}…`;
+  }
+  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  if (total !== vault.originalSizeBytes) throw new Error(`Reconstructed ${total} bytes; expected ${vault.originalSizeBytes}.`);
+  const payload = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) { payload.set(chunk, offset); offset += chunk.length; }
+  if (await sha256Hex(payload) !== vault.originalSha256.toLowerCase()) throw new Error('Full payload SHA-256 mismatch.');
+  return payload;
+}
+document.getElementById('decryptButton').addEventListener('click', async () => {
+  downloadButton.disabled = true;
+  output.value = '';
+  verifiedJson = '';
+  const file = fileInput.files && fileInput.files[0];
+  const passphrase = passphraseInput.value;
+  if (!file) { status.textContent = 'Select a vault .js file first.'; return; }
+  if (!passphrase) { status.textContent = 'Enter the vault passphrase.'; return; }
+  const button = document.getElementById('decryptButton');
+  button.disabled = true;
+  try {
+    status.textContent = 'Reading and validating vault…';
+    const vault = parseVaultSource(await file.text());
+    validateVault(vault);
+    const payload = await reconstruct(vault, passphrase);
+    // JSON.stringify(Array.from(...)) guarantees an ordinary JSON array of integer bytes.
+    verifiedJson = JSON.stringify(Array.from(payload), null, 2);
+    output.value = verifiedJson;
+    const stem = String(vault.fileName || file.name.replace(/\.js$/i, '')).replace(/\.[^.]*$/, '').replace(/[^a-z0-9._-]+/gi, '_') || 'payload';
+    outputName = `${stem}_bytes.json`;
+    downloadButton.disabled = false;
+    status.textContent = `Verified ${payload.length} bytes and full SHA-256. Ready to download ${outputName}.`;
+  } catch (error) {
+    status.textContent = `Failed: ${error && error.message ? error.message : String(error)}`;
+  } finally {
+    button.disabled = false;
+  }
+});
+downloadButton.addEventListener('click', () => {
+  if (!verifiedJson) return;
+  const url = URL.createObjectURL(new Blob([verifiedJson], { type: 'application/json;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = outputName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+</script>
+</body>
+</html>
