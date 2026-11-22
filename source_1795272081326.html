@@ -113,6 +113,7 @@
         compositeAndRenderPreview();
         URL.revokeObjectURL(objectUrl);
       };
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); document.getElementById('status').textContent = 'Could not load the selected carrier image.'; };
       img.src = objectUrl;
     });
 
@@ -131,7 +132,6 @@
       return { fileName: 'inline_payload.txt', mimeType: 'text/plain', bytes: new TextEncoder().encode(txt) };
     }
 
-    // Keep the cap high enough to fit the active payload using the selected token width.
     function updateMaxTokensForPayload() {
       const bitWidth = Number.parseInt(document.getElementById('bitWidth').value, 10);
       if (!Number.isFinite(bitWidth) || bitWidth < 4 || bitWidth > 512) return;
@@ -208,7 +208,15 @@
     async function executePipeline(mode) {
       const status = document.getElementById('status');
       const preview = document.getElementById('codePreview');
+      let directoryHandle = null;
       try {
+        // Request the directory while this call still has the user's click activation;
+        // waiting until encryption finishes can cause browsers to block the picker.
+        if (mode === 'saveToFolder') {
+          if (!window.showDirectoryPicker) throw new Error('Folder saving is not supported in this browser. Use the download button instead.');
+          directoryHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        }
+
         const passphrase = document.getElementById('passphrase').value;
         if (!passphrase) throw new Error('A passphrase is required.');
         const bitWidth = Number.parseInt(document.getElementById('bitWidth').value, 10);
@@ -241,21 +249,33 @@
         const safeName = (payload.fileName || 'payload').replace(/[^a-z0-9._-]+/gi, '_').replace(/\.[^.]*$/, '');
         const fileName = `${safeName}_shredded_vault.js`;
 
-        if (mode === 'saveToFolder' && 'showDirectoryPicker' in window) {
-          const directory = await window.showDirectoryPicker({ mode: 'readwrite' });
-          const fileHandle = await directory.getFileHandle(fileName, { create: true });
-          const writable = await fileHandle.createWritable();
-          await writable.write(jsText);
-          await writable.close();
-          status.textContent = `Saved ${fileName} (${vault.tokenCount} encrypted token(s)).`;
+        if (directoryHandle) {
+          status.textContent = `Saving ${fileName} to the selected folder...`;
+          await saveVaultFile(directoryHandle, fileName, jsText);
+          status.textContent = `Saved ${fileName} (${vault.tokenCount} encrypted token(s)) to the selected folder.`;
         } else {
-          if (mode === 'saveToFolder') status.textContent = 'Folder selection is not supported by this browser; downloading the file instead.';
           downloadTextFile(fileName, jsText);
-          if (mode !== 'saveToFolder') status.textContent = `Downloaded ${fileName} (${vault.tokenCount} encrypted token(s)).`;
+          status.textContent = `Downloaded ${fileName} (${vault.tokenCount} encrypted token(s)).`;
         }
       } catch (error) {
+        if (error && error.name === 'AbortError') {
+          status.textContent = 'Folder selection cancelled; no file was saved.';
+          return;
+        }
         status.textContent = `Error: ${error.message || error}`;
         preview.textContent = `// ${error.message || error}`;
+      }
+    }
+
+    async function saveVaultFile(directoryHandle, fileName, contents) {
+      const fileHandle = await directoryHandle.getFileHandle(fileName, { create: true });
+      const writable = await fileHandle.createWritable();
+      try {
+        await writable.write(new Blob([contents], { type: 'text/javascript;charset=utf-8' }));
+        await writable.close();
+      } catch (error) {
+        try { await writable.abort(); } catch { /* Preserve the original write/close error. */ }
+        throw error;
       }
     }
 
