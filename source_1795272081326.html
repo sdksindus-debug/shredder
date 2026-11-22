@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Multi-Type i-Bit Visual Data Shredder & Folder Saver</title>
+  <style>
+    :root { --bg: #090d16; --card: #111827; --border: #1f2937; --blue: #3b82f6; --green: #10b981; --purple: #8b5cf6; --text: #f3f4f6; --muted: #9ca3af; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; max-width: 980px; margin: 1.5rem auto; padding: 0 1rem; background: var(--bg); color: var(--text); }
+    h2 { margin: 0 0 0.25rem; }
+    .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.25rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; }
+    label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--muted); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    textarea, input[type="number"], input[type="password"] {
+      width: 100%; box-sizing: border-box; padding: 0.55rem 0.7rem; border-radius: 6px;
+      border: 1px solid #374151; background: #030712; color: var(--text); font-family: Consolas, monospace; font-size: 0.88rem;
+    }
+    .row { display: flex; gap: 0.75rem; margin-top: 0.75rem; }
+    .row > div { flex: 1; }
+    .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 1rem 0; }
+    button { padding: 0.7rem 1.15rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: opacity 0.15s; }
+    button:hover { opacity: 0.9; }
+    .btn-upload-data { background: var(--purple); color: #fff; width: 100%; margin-bottom: 0.5rem; }
+    .btn-upload-img { background: #0284c7; color: #fff; width: 100%; margin-bottom: 0.5rem; }
+    .btn-shred { background: var(--blue); color: #fff; }
+    .btn-folder { background: var(--green); color: #052e16; }
+    .file-badge { font-family: Consolas, monospace; font-size: 0.8rem; color: #38bdf8; background: #030712; padding: 0.4rem 0.6rem; border-radius: 5px; border: 1px solid #1e293b; margin-bottom: 0.65rem; word-break: break-all; }
+    .status { font-family: Consolas, monospace; font-size: 0.85rem; color: #34d399; margin-bottom: 0.75rem; }
+    canvas { width: 100%; max-height: 240px; object-fit: contain; background: #030712; border: 1px solid var(--border); border-radius: 8px; display: block; margin-bottom: 1rem; }
+    pre { background: #030712; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; max-height: 290px; overflow: auto; font-size: 0.8rem; color: #a5f3fc; }
+  </style>
+</head>
+<body>
+  <h2>Multi-Type i-Bit Visual Data Shredder & Folder Saver</h2>
+  <div class="sub">Upload multi-type data + high-resolution base images, shred into i-bit tokens with per-token metadata, encrypt with AES-256-GCM, and auto-download or save directly into a chosen Windows folder.</div>
+
+  <div class="grid">
+    <!-- Left Card: Data Upload Button + Fallback Text -->
+    <div class="card">
+      <label>1. Data Input (Multi-Type Upload or Direct Text)</label>
+      <input type="file" id="dataFileInput" style="display:none;" />
+      <button type="button" class="btn-upload-data" onclick="document.getElementById('dataFileInput').click()">
+        Upload Data File (Any Type: JSON, CSV, PDF, ZIP, IMG, BIN)
+      </button>
+      <div id="dataFileStatus" class="file-badge">Active Source: Direct Text Payload below</div>
+
+      <label for="fallbackText">Or Edit Preloaded Text / JSON Payload</label>
+      <textarea id="fallbackText" rows="3">{"vaultId":"PK-LHR-904","classification":"RESTRICTED","stream":"MULTI-TYPE-PAYLOAD"}</textarea>
+    </div>
+
+    <!-- Right Card: Large Base Image Upload Button + Parameters -->
+    <div class="card">
+      <label>2. Base Carrier Image (Supports Very Large / 4K+ Images)</label>
+      <input type="file" id="baseImageInput" accept="image/*" style="display:none;" />
+      <button type="button" class="btn-upload-img" onclick="document.getElementById('baseImageInput').click()">
+        Upload Base Image (4K / High-Resolution Carrier)
+      </button>
+      <div id="imageFileStatus" class="file-badge">Active Carrier: Built-in Preloaded Carrier (1600×900)</div>
+
+      <div class="row">
+        <div>
+          <label for="bitWidth">Token Bit Size (i)</label>
+          <input type="number" id="bitWidth" value="32" min="4" max="512" />
+        </div>
+        <div>
+          <label for="maxTokens">Max Tokens Cap</label>
+          <input type="number" id="maxTokens" value="256" min="1" max="20000" />
+        </div>
+      </div>
+
+      <div style="margin-top: 0.65rem;">
+        <label for="passphrase">AES-256-GCM Passphrase</label>
+        <input type="password" id="passphrase" value="VaultKey#2026!" />
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button type="button" class="btn-shred" onclick="executePipeline('autoDownload')">
+      Shred, Encrypt & Download .js Right Away
+    </button>
+    <button type="button" class="btn-folder" onclick="executePipeline('saveToFolder')">
+      Save Shredded Tokens in Selected Folder (.js)
+    </button>
+  </div>
+
+  <div id="status" class="status">Ready. Upload data/image or use preloaded defaults.</div>
+  <canvas id="previewCanvas" width="900" height="220"></canvas>
+
+  <label>Generated Encrypted .js Module Preview (First 3 Tokens + Individual Metadata)</label>
+  <pre id="codePreview">// Shredded and encrypted .js output will appear here...</pre>
+
+  <script>
+    const previewCanvas = document.getElementById('previewCanvas');
+    const previewCtx = previewCanvas.getContext('2d');
+
+    // Full-resolution offscreen canvas for very large images
+    const offscreenCanvas = document.createElement('canvas');
+    const offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
+
+    let loadedImage = new Image();
+    let baseImageName = 'preloaded_carrier.svg';
+    let uploadedDataBytes = null;
+    let uploadedDataMeta = null;
+
+    // Built-in default preloaded high-res carrier
+    const DEFAULT_CARRIER = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+      <svg xmlns="http://w3.org" width="1600" height="900">
+        <defs>
+          <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#0f172a"/>
+            <stop offset="50%" stop-color="#1e3a8a"/>
+            <stop offset="100%" stop-color="#064e3b"/>
+          </linearGradient>
+        </defs>
+        <rect width="1600" height="900" fill="url(#bg)"/>
+        <circle cx="800" cy="450" r="320" fill="none" stroke="rgba(56,189,248,0.22)" stroke-width="4"/>
+        <text x="60" y="90" fill="rgba(255,255,255,0.32)" font-family="monospace" font-size="36">PRELOADED HIGH-RES VISUAL CARRIER</text>
+      </svg>
+    `);
+
+    loadedImage.onload = () => {
+      offscreenCanvas.width = loadedImage.naturalWidth || 1600;
+      offscreenCanvas.height = loadedImage.naturalHeight || 900;
+      compositeAndRenderPreview();
+    };
+    loadedImage.src = DEFAULT_CARRIER;
+
+    // Button 1 handler: Upload multi-type data file
+    document.getElementById('dataFileInput').addEventListener('change', async (e) => {
+      const file = e.target.files;
+      if (!file) return;
+      const buffer = await file.arrayBuffer();
+      uploadedDataBytes = new Uint8Array(buffer);
+      uploadedDataMeta = {
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        sizeBytes: file.size
+      };
+      document.getElementById('dataFileStatus').textContent =
+        `Uploaded Data: ${file.name} | Type: ${uploadedDataMeta.mimeType} | Size: ${file.size.toLocaleString()} bytes`;
+      compositeAndRenderPreview();
+    });
+
+    // Button 2 handler: Upload very large base image
+    document.getElementById('baseImageInput').addEventListener('change', (e) => {
+      const file = e.target.files;
+      if (!file) return;
+      baseImageName = file.name;
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        loadedImage = img;
+        offscreenCanvas.width = img.naturalWidth;
+        offscreenCanvas.height = img.naturalHeight;
+        const megapixels = ((img.naturalWidth * img.naturalHeight) / 1_000_000).toFixed(2);
+        document.getElementById('imageFileStatus').textContent =
+          `Uploaded Base Image: ${file.name} (${img.naturalWidth} × ${img.naturalHeight} px | ${megapixels} MP)`;
+        compositeAndRenderPreview();
+        URL.revokeObjectURL(objectUrl);
+      };
+      img.src = objectUrl;
+    });
+
+    document.getElementById('fallbackText').addEventListener('input', () => {
+      if (!uploadedDataBytes) compositeAndRenderPreview();
+    });
+
+    function getActivePayload() {
+      if (uploadedDataBytes && uploadedDataMeta) {
+        return {
+          fileName: uploadedDataMeta.fileName,
+          mimeType: uploadedDataMeta.mimeType,
+          bytes: uploadedDataBytes
+        };
+      }
+      const txt = document.getElementById('fallbackText').value;
+      return {
+        fileName: 'inline_payload.txt',
+        mimeType: 'text/plain',
+        bytes: new TextEncoder().encode(txt)
+      };
+    }
+
+    function compositeAndRenderPreview() {
+      const w = offscreenCanvas.width;
+      const h = offscreenCanvas.height;
+      offscreenCtx.clearRect(0, 0, w, h);
+      offscreenCtx.drawImage(loadedImage, 0, 0, w, h);
+
+      const payload = getActivePayload();
+      const bannerH = Math.max(80, Math.floor(h * 0.14));
+      offscreenCtx.fillStyle = 'rgba(3, 7, 18, 0.78)';
+      offscreenCtx.fillRect(0, Math.floor(h * 0.42), w, bannerH);
+
+      offscreenCtx.fillStyle = '#38bdf8';
+      offscreenCtx.font = `bold ${Math.max(20, Math.floor(bannerH * 0.36))}px Consolas, monospace`;
+      const bannerText = payload.mimeType === 'text/plain'
+        ? document.getElementById('fallbackText').value.slice(0, 75)
+        : `[MULTI-TYPE STREAM] ${payload.fileName} (${payload.mimeType}, ${payload.bytes.length.toLocaleString()} B)`;
